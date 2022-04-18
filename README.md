@@ -6,7 +6,7 @@ read committed transaction on them. TGraph stores graph structure
 on Neo4j and puts temporal properties values on RocksDB.
 
 ## TODO
-- [ ] project structure and interface design
+- [x] project structure and interface design
 - [ ] graph and temporal property store
 - [ ] high efficient WAL
 - [ ] pessimistic transaction based on property granularity lock
