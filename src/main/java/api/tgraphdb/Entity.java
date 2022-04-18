@@ -68,7 +68,7 @@ public interface Entity {
      * If there's no property associated with <code>key</code> an unchecked
      * exception is raised. The idiomatic way to avoid an exception for an
      * unknown key and instead get <code>null</code> back is to use a default
-     * value: Object valueOrNull =  nodeOrRel.getProperty(key, null)
+     * value: Object valueOrNull = nodeOrRel.getProperty(key, null)
      *
      * @param key the property key
      * @return the property value associated with the given key
