@@ -6,14 +6,17 @@ import java.util.List;
 import java.util.Map;
 import java.sql.Timestamp;
 
+import org.neo4j.graphdb.NotFoundException;
+
 /**
- * An Entity is a Entity that is persisted in the database, and identified by an id.
+ * An Entity is persisted in the database, and identified by an id.
  * Nodes and Relationships are Entities. Entities are attached to transaction in which they were accessed.
  * Outside of transaction its possible only to access entity id. All other methods should be called only in the scope
  * of the owning transaction. Defines a common API for handling properties on both nodes and relationships.
- *
+ * <p>
+ * <p>
  * Properties are key-value pairs. The keys are always strings.
- *
+ * <p>
  * The complete list of currently supported property types is:
  * boolean
  * byte
@@ -24,7 +27,6 @@ import java.sql.Timestamp;
  * double
  * char
  * java.lang.String
- * api.tgraphdb.Point
  * java.time.LocalDate
  * java.time.OffsetTime
  * java.time.LocalTime
@@ -42,9 +44,10 @@ import java.sql.Timestamp;
 
 public interface Entity {
     /**
-     * Returns the unique id of this entity. Id's are reused over time so they are only guaranteed to be unique
+     * Returns the unique id of this entity. Ids are reused over time, so they are only guaranteed to be unique
      * during a specific transaction: if the entity is deleted, it is
      * likely that some new entity will reuse this id at some point.
+     * The id is not unique between Nodes and Relationships, because they are stored in fixed size and in different files.
      *
      * @return The id of this Entity.
      */
@@ -141,6 +144,7 @@ public interface Entity {
 
     /**
      * Create a temporal property.
+     *
      * @param key the property key
      * @throws TemporalPropertyExistsException if property already exists
      */
@@ -148,6 +152,7 @@ public interface Entity {
 
     /**
      * Returns whether a temporal property exists.
+     *
      * @param key the property key
      * @return true if exists or false if not exists
      */
@@ -155,7 +160,8 @@ public interface Entity {
 
     /**
      * Returns specified existing temporal property value in timestamp.
-     * @param key the property key
+     *
+     * @param key       the property key
      * @param timestamp the timestamp
      * @return the property value associated with timestamp
      * @throws TemporalPropertyNotExistsException if property not exist
@@ -164,9 +170,10 @@ public interface Entity {
 
     /**
      * Returns specified existing temporal property values between [start, end).
-     * @param key the property key
+     *
+     * @param key   the property key
      * @param start the start timestamp
-     * @param end the end timestamp
+     * @param end   the end timestamp
      * @return a list of property values associated with timestamp
      * @throws TemporalPropertyNotExistsException if property not exists
      */
@@ -179,11 +186,11 @@ public interface Entity {
      * <p>
      * This means that <code>null</code> is not an accepted property value.
      *
-     * @param key   the key with which the new property value will be associated
-     * @param timestamp  the timestamp of the temporal property
-     * @param value the property value, of one of the valid property types
-     * @throws IllegalArgumentException if <code>value</code> is of an
-     *                                  unsupported type (including <code>null</code>)
+     * @param key       the key with which the new property value will be associated
+     * @param timestamp the timestamp of the temporal property
+     * @param value     the property value, of one of the valid property types
+     * @throws IllegalArgumentException           if <code>value</code> is of an
+     *                                            unsupported type (including <code>null</code>)
      * @throws TemporalPropertyNotExistsException if property not exists
      */
     void setTemporalPropertyValue(String key, Timestamp timestamp, Object value);
@@ -196,14 +203,14 @@ public interface Entity {
      * This means that <code>null</code> is not an accepted property value.
      *
      * @param key   the key with which the new property value will be associated
-     * @param start  the start timestamp of the temporal property
-     * @param end  the end timestamp of the temporal property
+     * @param start the start timestamp of the temporal property
+     * @param end   the end timestamp of the temporal property
      * @param value the property value, of one of the valid property types
-     * @throws IllegalArgumentException if <code>value</code> is of an
-     *                                  unsupported type (including <code>null</code>)
+     * @throws IllegalArgumentException           if <code>value</code> is of an
+     *                                            unsupported type (including <code>null</code>)
      * @throws TemporalPropertyNotExistsException if property not exists
      */
-    void setTemporalPropertyValue(String key, Timestamp start,  Timestamp end, Object value);
+    void setTemporalPropertyValue(String key, Timestamp start, Timestamp end, Object value);
 
     /**
      * Removes all the property values and this temporal property.
@@ -216,7 +223,7 @@ public interface Entity {
     /**
      * Removes the property value associated with timestamp.
      *
-     * @param key the property key
+     * @param key       the property key
      * @param timestamp the timestamp of this temporal property
      * @return property value associated with timestamp
      * @throws TemporalPropertyNotExistsException if property not exists.
@@ -226,9 +233,9 @@ public interface Entity {
     /**
      * Removes the property value between [start, end).
      *
-     * @param key the property key
+     * @param key   the property key
      * @param start the start timestamp of this temporal property
-     * @param end the end timestamp of this temporal property
+     * @param end   the end timestamp of this temporal property
      * @return a list of property values between [start, end)
      * @throws TemporalPropertyNotExistsException if property not exists.
      */

@@ -1,6 +1,9 @@
 package api.dbms;
 
 import api.tgraphdb.TGraphDatabaseService;
+import org.neo4j.dbms.api.DatabaseExistsException;
+import org.neo4j.dbms.api.DatabaseNotFoundException;
+import org.neo4j.graphdb.config.Configuration;
 
 import java.util.List;
 
@@ -37,7 +40,7 @@ public interface DatabaseManagementService {
      * Drop a database by name. All data stored in the database will be deleted as well.
      *
      * @param databaseName name of the database to drop.
-     * @throws DatabaseNotFoundException    if no database with the given name is found.
+     * @throws DatabaseNotFoundException if no database with the given name is found.
      */
     void dropDatabase(String databaseName) throws DatabaseNotFoundException;
 

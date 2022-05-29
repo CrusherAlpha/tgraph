@@ -1,14 +1,13 @@
 package api.tgraphdb;
 
-import org.neo4j.graphdb.ResourceIterable;
-import org.neo4j.graphdb.ResourceIterator;
+import org.neo4j.graphdb.*;
 
 import java.util.Map;
 
 /**
  * A programmatically handled transaction.
  * All database operations that access the temporal graph,  must be performed in a transaction.
- * If you attempt to access the graph outside of a transaction, those operations will throw NotInTransactionException.
+ * If you attempt to access the graph outside a transaction, those operations will throw NotInTransactionException.
  * Here's the idiomatic use of programmatic transactions in Neo4j:
  * <p>
  * try (Transaction tx = tgraphDb.beginTx())
@@ -28,12 +27,12 @@ import java.util.Map;
  * method to commit that the transaction.
  * <p>
  * If an exception is raised in the try-block, commit() will never be
- * invoked and the transaction will be roll backed. This is very important:
+ * invoked and the transaction will be rolled backed. This is very important:
  * unless commit() is invoked, the transaction will fail upon
  * close(). A transaction can be explicitly rolled back by
  * invoking the rollback() method.
  * <p>
- * Read operations inside of a transaction will also read uncommitted data from
+ * Read operations inside a transaction will also read uncommitted data from
  * the same transaction.
  * <p>
  * All ResourceIterables that were returned from operations executed inside a transaction
@@ -64,8 +63,8 @@ public interface Transaction extends AutoCloseable {
 
     /**
      * Looks up a node by id. Please note: Neo4j reuses its internal ids when
-     * nodes and relationships are deleted, which means it's bad practice to
-     * refer to them this way. Instead, use application generated ids.
+     * nodes and relationships are deleted, which means it's bad practice
+     * referring to them this way. Instead, use application generated ids.
      *
      * @param id the id of the node
      * @return the node with id <code>id</code> if found
@@ -76,7 +75,7 @@ public interface Transaction extends AutoCloseable {
     /**
      * Looks up a relationship by id. Please note: Neo4j reuses its internal ids
      * when nodes and relationships are deleted, which means it's bad practice
-     * to refer to them this way. Instead, use application generated ids.
+     * referring to them this way. Instead, use application generated ids.
      *
      * @param id the id of the relationship
      * @return the relationship with id <code>id</code> if found
@@ -414,7 +413,7 @@ public interface Transaction extends AutoCloseable {
     ResourceIterator<Relationship> findRelationships(RelationshipType relationshipType, String key1, Object value1, String key2, Object value2);
 
     /**
-     * Equivalent to findRelationships(RelationshipType, String, Object), however it must find no more than one relationship or it
+     * Equivalent to findRelationships(RelationshipType, String, Object), however it must find no more than one relationship, or it
      * will throw an exception.
      *
      * @param relationshipType consider relationships with this type
@@ -492,16 +491,16 @@ public interface Transaction extends AutoCloseable {
     ResourceIterable<Relationship> getAllRelationships();
 
     /**
-     * Acquires a write lock for {@code entity} for this transaction.
+     * Acquires a White lock for {@code entity} for this transaction.
      * The lock (returned from this method) can be released manually, but
      * if not it's released automatically when the transaction finishes.
      *
      * @param entity the entity to acquire a lock for. If another transaction
-     *               currently holds a write lock to that entity this call will wait until
+     *               currently holds a White lock to that entity this call will wait until
      *               it's released.
      * @return a Lock which optionally can be used to release this
      * lock earlier than when the transaction finishes. If not released
-     * (with Lock#release() it's going to be released when the
+     * with Lock#release() it's going to be released when the
      * transaction finishes.
      */
     Lock acquireWriteLock(Entity entity);
@@ -512,11 +511,11 @@ public interface Transaction extends AutoCloseable {
      * if not it's released automatically when the transaction finishes.
      *
      * @param entity the entity to acquire a lock for. If another transaction
-     *               currently hold a write lock to that entity this call will wait until
+     *               currently hold a White lock to that entity this call will wait until
      *               it's released.
      * @return a Lock which optionally can be used to release this
      * lock earlier than when the transaction finishes. If not released
-     * (with Lock#release() it's going to be released with the
+     * with Lock#release() it's going to be released with the
      * transaction finishes.
      */
     Lock acquireReadLock(Entity entity);
@@ -549,11 +548,11 @@ public interface Transaction extends AutoCloseable {
     void close();
 
     // 2pc extension
-
     /**
-     * Prepare to commit this transaction, after return ture, it can not be rollback unless
-     * client send rollback command.
      * @return true if ready to commit or false if not ready.
+     *
+     * If return true, transaction should guarantee to be able to commit in any circumstances
+     * unless users send rollback command.
      */
     boolean prepare();
 }

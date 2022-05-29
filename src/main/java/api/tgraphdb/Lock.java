@@ -1,5 +1,6 @@
 package api.tgraphdb;
 
+
 /**
  * An acquired lock on an entity for a transaction, acquired from
  * Transaction#acquireWriteLock(Entity) or Transaction#acquireReadLock(Entity)
@@ -23,7 +24,5 @@ public interface Lock extends AutoCloseable {
      * @throws IllegalStateException if this lock has already been released.
      */
     @Override
-    default void close() {
-        release();
-    }
+    void close();
 }

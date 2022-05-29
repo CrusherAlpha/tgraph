@@ -22,7 +22,7 @@ public interface TGraphDatabaseService {
      * <p>
      * <em>All database operations must be wrapped in a transaction.</em>
      * <p>
-     * If you attempt to access the graph outside of a transaction, those operations will throw
+     * If you attempt to access the graph outside a transaction, those operations will throw
      * NotInTransactionException.
      * <p>
      * Please ensure that any returned ResourceIterable is closed correctly and as soon as possible
@@ -38,7 +38,7 @@ public interface TGraphDatabaseService {
      * <p>
      * <em>All database operations must be wrapped in a transaction.</em>
      * <p>
-     * If you attempt to access the graph outside of a transaction, those operations will throw
+     * If you attempt to access the graph outside a transaction, those operations will throw
      * NotInTransactionException.
      * <p>
      * Please ensure that any returned ResourceIterable is closed correctly and as soon as possible

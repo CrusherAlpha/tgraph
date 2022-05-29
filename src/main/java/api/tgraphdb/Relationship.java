@@ -1,5 +1,8 @@
 package api.tgraphdb;
 
+import org.neo4j.graphdb.RelationshipType;
+import org.neo4j.graphdb.NotFoundException;
+
 /**
  * A relationship between two nodes in the graph. A relationship has a start
  * node, an end node and a RelationshipType type. You can attach
@@ -44,8 +47,10 @@ package api.tgraphdb;
  * return valid, non-null nodes.
  * <p>
  * A relationship's id is unique, but note the following: Neo4j reuses its internal ids
- * when nodes and relationships are deleted, which means it's bad practice to
- * refer to them this way. Instead, use application generated ids.
+ * when nodes and relationships are deleted, which means it's bad practice referring to them this way.
+ * Instead, use application generated ids.
+ * <p>
+ * TGraph wrappers Neo4j Relationship and adds more info, so, inherits the above properties of Neo4j Relationship.
  */
 public interface Relationship extends Entity {
     /**
@@ -60,7 +65,7 @@ public interface Relationship extends Entity {
     /**
      * Returns the start node of this relationship. For a definition of how
      * start node relates to Direction directions as arguments to the
-     * relationship accessors in Node, see theclass documentation of Relationship.
+     * relationship accessors in Node, see the class documentation of Relationship.
      *
      * @return the start node of this relationship
      */
