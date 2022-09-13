@@ -3,8 +3,8 @@ package common;
 import org.nustaq.serialization.FSTConfiguration;
 
 // https://github.com/RuedigerMoeller/fast-serialization/wiki/Serialization
-// Make sure you read the link before if you want to change this implementation.
-// Refer test/common/CodingTest.java for more example.
+// Make sure you read the link before you change this implementation.
+// Refer test/common/CodingTest.java for more usage example.
 
 public class Coding {
     // We aim to be compatible with Neo4j, thus we only preregister the class that Neo4j supports.

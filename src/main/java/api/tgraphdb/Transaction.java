@@ -10,12 +10,12 @@ import java.util.Map;
  * If you attempt to access the graph outside a transaction, those operations will throw NotInTransactionException.
  * Here's the idiomatic use of programmatic transactions in Neo4j:
  * <p>
- * try (Transaction tx = tgraphDb.beginTx())
+ * try (Transaction txn = tgraphDb.beginTx())
  * {
  * // operations on the graph
  * // ...
  * <p>
- * tx.commit();
+ * txn.commit();
  * }
  * <p>
  * Let's walk through this example line by line. First we retrieve a Transaction
@@ -489,37 +489,6 @@ public interface Transaction extends AutoCloseable {
      * @return all relationships in the graph.
      */
     ResourceIterable<Relationship> getAllRelationships();
-
-    /**
-     * Acquires a White lock for {@code entity} for this transaction.
-     * The lock (returned from this method) can be released manually, but
-     * if not it's released automatically when the transaction finishes.
-     *
-     * @param entity the entity to acquire a lock for. If another transaction
-     *               currently holds a White lock to that entity this call will wait until
-     *               it's released.
-     * @return a Lock which optionally can be used to release this
-     * lock earlier than when the transaction finishes. If not released
-     * with Lock#release() it's going to be released when the
-     * transaction finishes.
-     */
-    Lock acquireWriteLock(Entity entity);
-
-    /**
-     * Acquires a read lock for {@code entity} for this transaction.
-     * The lock (returned from this method) can be released manually, but
-     * if not it's released automatically when the transaction finishes.
-     *
-     * @param entity the entity to acquire a lock for. If another transaction
-     *               currently hold a White lock to that entity this call will wait until
-     *               it's released.
-     * @return a Lock which optionally can be used to release this
-     * lock earlier than when the transaction finishes. If not released
-     * with Lock#release() it's going to be released with the
-     * transaction finishes.
-     */
-    Lock acquireReadLock(Entity entity);
-
 
     /**
      * Commit and close current transaction.

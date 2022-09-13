@@ -16,6 +16,7 @@ import org.neo4j.graphdb.NotFoundException;
  * <p>
  * <p>
  * Properties are key-value pairs. The keys are always strings.
+ * Properties are temporal and static.
  * <p>
  * The complete list of currently supported property types is:
  * boolean
@@ -53,6 +54,7 @@ public interface Entity {
      */
     long getId();
 
+    // static properties interface.
     /**
      * Returns <code>true</code> if this property container has a property
      * accessible through the given key, <code>false</code> otherwise. If key is
@@ -141,6 +143,11 @@ public interface Entity {
     Map<String, Object> getAllProperties();
 
     // temporal property extension.
+    // temporal property encoding:
+    // key: t_{temporal property key} value: 0xff
+    // user only need to pass {temporal property key}.
+    // we store {key, value} pair in Neo4j as a placeholder to build the connection
+    // between topology storage and temporal property storage.
 
     /**
      * Create a temporal property.
@@ -169,12 +176,13 @@ public interface Entity {
     Object getTemporalPropertyValue(String key, Timestamp timestamp);
 
     /**
-     * Returns specified existing temporal property values between [start, end).
+     * Returns specified existing temporal property values in time range [start, end).
      *
      * @param key   the property key
      * @param start the start timestamp
      * @param end   the end timestamp
      * @return a list of property values associated with timestamp
+     * @throws IllegalArgumentException           if <code>start</code> is bigger than <code>end</code>
      * @throws TemporalPropertyNotExistsException if property not exists
      */
     List<Pair<Timestamp, Object>> getTemporalPropertyValue(String key, Timestamp start, Timestamp end);
@@ -208,6 +216,7 @@ public interface Entity {
      * @param value the property value, of one of the valid property types
      * @throws IllegalArgumentException           if <code>value</code> is of an
      *                                            unsupported type (including <code>null</code>)
+     *                                            or <code>start</code> is bigger than <code>end</code>.
      * @throws TemporalPropertyNotExistsException if property not exists
      */
     void setTemporalPropertyValue(String key, Timestamp start, Timestamp end, Object value);
@@ -225,7 +234,7 @@ public interface Entity {
      *
      * @param key       the property key
      * @param timestamp the timestamp of this temporal property
-     * @return property value associated with timestamp
+     * @return property value associated with timestamp or null if value is not exist in this timestamp.
      * @throws TemporalPropertyNotExistsException if property not exists.
      */
     Object removeTemporalPropertyValue(String key, Timestamp timestamp);
@@ -236,13 +245,14 @@ public interface Entity {
      * @param key   the property key
      * @param start the start timestamp of this temporal property
      * @param end   the end timestamp of this temporal property
-     * @return a list of property values between [start, end)
+     * @return a list of property values(or null if value is not exist in that timestamp) between [start, end)
      * @throws TemporalPropertyNotExistsException if property not exists.
+     * @throws IllegalArgumentException           if <code>start</code> is bigger than <code>end</code>
      */
     List<Pair<Timestamp, Object>> removeTemporalPropertyValue(String key, Timestamp start, Timestamp end);
 
     /**
-     * Removes all the property value bot not delete the property.
+     * Removes all the property value but not delete the property.
      *
      * @param key the property key
      * @return a list of all property values
