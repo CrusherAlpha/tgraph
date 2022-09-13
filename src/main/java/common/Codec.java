@@ -6,7 +6,7 @@ import org.nustaq.serialization.FSTConfiguration;
 // Make sure you read the link before you change this implementation.
 // Refer test/common/CodingTest.java for more usage example.
 
-public class Coding {
+public class Codec {
     // We aim to be compatible with Neo4j, thus we only preregister the class that Neo4j supports.
     // https://neo4j.com/docs/java-reference/4.4/javadocs/org/neo4j/graphdb/Entity.html
 

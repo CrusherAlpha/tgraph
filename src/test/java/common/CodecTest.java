@@ -5,10 +5,10 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static common.Coding.encode;
-import static common.Coding.decode;
+import static common.Codec.encode;
+import static common.Codec.decode;
 
-public class CodingTest {
+public class CodecTest {
     @Test
     void testPrimitive() {
         // boolean
