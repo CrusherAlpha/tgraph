@@ -1,8 +1,8 @@
 package kvstore;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.rocksdb.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 
@@ -56,19 +56,19 @@ public class RocksEngineConfig {
 
     static final HashMap<String, CompressionType> compressionTypeHashMap = new HashMap<String, CompressionType>() {
         {
-            compressionTypeHashMap.put("no", CompressionType.NO_COMPRESSION);
-            compressionTypeHashMap.put("snappy", CompressionType.SNAPPY_COMPRESSION);
-            compressionTypeHashMap.put("lz4", CompressionType.LZ4_COMPRESSION);
-            compressionTypeHashMap.put("lz4hc", CompressionType.LZ4HC_COMPRESSION);
-            compressionTypeHashMap.put("zstd", CompressionType.ZSTD_COMPRESSION);
-            compressionTypeHashMap.put("zlib", CompressionType.ZLIB_COMPRESSION);
-            compressionTypeHashMap.put("bzip2", CompressionType.BZLIB2_COMPRESSION);
-            compressionTypeHashMap.put("xpress", CompressionType.XPRESS_COMPRESSION);
-            compressionTypeHashMap.put("disable", CompressionType.DISABLE_COMPRESSION_OPTION);
+            put("no", CompressionType.NO_COMPRESSION);
+            put("snappy", CompressionType.SNAPPY_COMPRESSION);
+            put("lz4", CompressionType.LZ4_COMPRESSION);
+            put("lz4hc", CompressionType.LZ4HC_COMPRESSION);
+            put("zstd", CompressionType.ZSTD_COMPRESSION);
+            put("zlib", CompressionType.ZLIB_COMPRESSION);
+            put("bzip2", CompressionType.BZLIB2_COMPRESSION);
+            put("xpress", CompressionType.XPRESS_COMPRESSION);
+            put("disable", CompressionType.DISABLE_COMPRESSION_OPTION);
         }
     };
 
-    private static final Logger log = LoggerFactory.getLogger(RocksEngineConfig.class);
+    private static final Log log = LogFactory.getLog(RocksEngineConfig.class);
 
     // NOTE!: caller should guarantee to close it.
     static Options InitRocksdbOptions() {
@@ -80,6 +80,7 @@ public class RocksEngineConfig {
             return null;
         }
         final Options opt = new Options();
+        opt.setCreateIfMissing(true);
 
         opt.setCompressionType(compress);
 

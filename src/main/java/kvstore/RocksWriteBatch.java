@@ -42,4 +42,9 @@ public class RocksWriteBatch implements WriteBatch {
     public void close() {
         wb.close();
     }
+
+    // NOTE!: caller should guarantee call this before close
+    public org.rocksdb.WriteBatch getWb() {
+        return wb;
+    }
 }

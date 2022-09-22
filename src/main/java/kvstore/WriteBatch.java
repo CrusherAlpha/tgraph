@@ -1,7 +1,7 @@
 package kvstore;
 
 // wrapper of batch write
-public interface WriteBatch {
+public interface WriteBatch extends AutoCloseable {
     /**
      *
      * @param key Key to put
@@ -25,5 +25,6 @@ public interface WriteBatch {
      */
     boolean removeRange(byte[] start, byte[] end);
 
+    @Override
     void close();
 }

@@ -1,11 +1,12 @@
 package kvstore;
 
 import com.google.common.base.Preconditions;
+import common.Codec;
 import common.Pair;
 import impl.tgraphdb.GraphSpaceID;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.rocksdb.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,7 +21,7 @@ public class RocksEngine implements KVEngine {
         RocksDB.loadLibrary();
     }
 
-    private static final Logger log = LoggerFactory.getLogger(RocksEngine.class);
+    private static final Log log = LogFactory.getLog(RocksEngine.class);
 
     private final GraphSpaceID graph;
 
@@ -31,7 +32,7 @@ public class RocksEngine implements KVEngine {
     private final Options opt;
 
 
-    RocksEngine(GraphSpaceID graph, String dataPath, boolean readonly) {
+    public RocksEngine(GraphSpaceID graph, String dataPath, boolean readonly) {
         Preconditions.checkNotNull(graph);
         Preconditions.checkNotNull(dataPath);
         if (!Files.exists(Paths.get(dataPath))) {
@@ -42,6 +43,7 @@ public class RocksEngine implements KVEngine {
                 try {
                     Files.createDirectories(Paths.get(dataPath));
                 } catch (IOException e) {
+                    e.printStackTrace();
                     log.error("Create data path failed.");
                     System.exit(-1);
                 }
@@ -62,6 +64,7 @@ public class RocksEngine implements KVEngine {
             try {
                 db = RocksDB.openReadOnly(opt, dataPath);
             } catch (RocksDBException e) {
+                e.printStackTrace();
                 log.error(String.format("open %s for read failed.", graph.getGraphName()));
                 System.exit(-1);
             }
@@ -69,6 +72,7 @@ public class RocksEngine implements KVEngine {
             try {
                 db = RocksDB.open(opt, dataPath);
             } catch (RocksDBException e) {
+                e.printStackTrace();
                 log.error(String.format("open %s failed.", graph.getGraphName()));
                 System.exit(-1);
             }
@@ -106,9 +110,11 @@ public class RocksEngine implements KVEngine {
             writeOpt.setSync(sync);
             writeOpt.setNoSlowdown(!wait);
             try {
-                db.write(writeOpt, (org.rocksdb.WriteBatch) batch);
-                batch.close();
+                RocksWriteBatch wb = (RocksWriteBatch) batch;
+                db.write(writeOpt, wb.getWb());
             } catch (RocksDBException e) {
+                e.printStackTrace();
+                log.error("Commit WriteBatch Failed.");
                 return false;
             }
         }
@@ -134,6 +140,7 @@ public class RocksEngine implements KVEngine {
             }
             return db.get(readOptions, key);
         } catch (RocksDBException e) {
+            e.printStackTrace();
             log.error(String.format("Get key %s failed.", Arrays.toString(key)));
             System.exit(-1);
         }
@@ -145,6 +152,7 @@ public class RocksEngine implements KVEngine {
         try (ReadOptions readOptions = new ReadOptions()) {
             return db.multiGetAsList(readOptions, keys);
         } catch (RocksDBException e) {
+            e.printStackTrace();
             log.error("MultiGet failed.");
         }
         return null;
@@ -197,8 +205,7 @@ public class RocksEngine implements KVEngine {
             if (snapshot != null) {
                 readOptions.setSnapshot((Snapshot) snapshot);
             }
-            // we should guarantee the order.
-            readOptions.setTotalOrderSeek(true);
+            //readOptions.setPrefixSameAsStart(true);
             var iter = db.newIterator(readOptions);
             if (iter != null) {
                 iter.seek(prefix);
@@ -228,6 +235,7 @@ public class RocksEngine implements KVEngine {
                 db.put(writeOptions, key, value);
                 return true;
             } catch (RocksDBException e) {
+                e.printStackTrace();
                 log.error(String.format("Put key %s failed.", Arrays.toString(key)));
             }
         }
@@ -241,6 +249,7 @@ public class RocksEngine implements KVEngine {
                 try {
                     wb.put(pr.first(), pr.second());
                 } catch (RocksDBException e) {
+                    e.printStackTrace();
                     log.error(String.format("MultiPut failed in position key %s.", Arrays.toString(pr.first())));
                     return false;
                 }
@@ -251,6 +260,7 @@ public class RocksEngine implements KVEngine {
                     db.write(writeOptions, wb);
                     return true;
                 } catch (RocksDBException e) {
+                    e.printStackTrace();
                     log.error("MultiPut failed.");
                 }
             }
@@ -266,6 +276,7 @@ public class RocksEngine implements KVEngine {
                 db.delete(writeOptions, key);
                 return true;
             } catch (RocksDBException e) {
+                e.printStackTrace();
                 log.error(String.format("Delete key %s failed.", Arrays.toString(key)));
             }
         }
@@ -279,6 +290,7 @@ public class RocksEngine implements KVEngine {
                 try {
                     wb.delete(key);
                 } catch (RocksDBException e) {
+                    e.printStackTrace();
                     log.error(String.format("MultiRemove failed in position key %s.", Arrays.toString(key)));
                     return false;
                 }
@@ -289,7 +301,8 @@ public class RocksEngine implements KVEngine {
                     db.write(writeOptions, wb);
                     return true;
                 } catch (RocksDBException e) {
-                    log.error("MultiPut failed.");
+                    e.printStackTrace();
+                    log.error("MultiRemove failed.");
                 }
             }
         }
@@ -304,6 +317,7 @@ public class RocksEngine implements KVEngine {
                 db.deleteRange(writeOptions, start, end);
                 return true;
             } catch (RocksDBException e) {
+                e.printStackTrace();
                 log.error(String.format("Delete range [%s, %s) failed.", Arrays.toString(start), Arrays.toString(end)));
             }
         }
@@ -316,6 +330,7 @@ public class RocksEngine implements KVEngine {
             db.flush(flushOptions);
             return true;
         } catch (RocksDBException e) {
+            e.printStackTrace();
             log.error("flush failed.");
         }
         return false;

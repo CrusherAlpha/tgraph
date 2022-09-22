@@ -1,12 +1,18 @@
 package common;
 
 public class Bytes {
-    public static boolean startWith(byte[] src, byte[] patten) {
-        if (patten.length > src.length) {
+    public static boolean startsWith(byte[] key, byte[] prefix) {
+        if (key == prefix) {
+            return true;
+        }
+        if (key == null || prefix == null) {
             return false;
         }
-        for (int i = 0; i < patten.length; ++i) {
-            if (patten[i] != src[i]) {
+        if (prefix.length > key.length) {
+            return false;
+        }
+        for (int i = 0; i < prefix.length; ++i) {
+            if (prefix[i] != key[i]) {
                 return false;
             }
         }

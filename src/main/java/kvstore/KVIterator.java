@@ -1,6 +1,6 @@
 package kvstore;
 
-public interface KVIterator {
+public interface KVIterator extends AutoCloseable {
     /**
      *
      * @return whether iterator has more key/value.
@@ -29,5 +29,6 @@ public interface KVIterator {
      */
     byte[] value();
 
+    @Override
     void close();
 }

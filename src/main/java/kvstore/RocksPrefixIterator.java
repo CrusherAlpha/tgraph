@@ -7,6 +7,7 @@ public class RocksPrefixIterator implements KVIterator {
     private final byte[] prefix;
     private final RocksIterator iter;
 
+
     public RocksPrefixIterator(byte[] prefix, RocksIterator iter) {
         this.prefix = prefix;
         this.iter = iter;
@@ -14,7 +15,7 @@ public class RocksPrefixIterator implements KVIterator {
 
     @Override
     public boolean valid() {
-        return iter != null && iter.isValid() && Bytes.startWith(iter.key(), prefix);
+        return iter != null && iter.isValid() && Bytes.startsWith(iter.key(), prefix);
     }
 
     @Override

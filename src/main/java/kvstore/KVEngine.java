@@ -43,7 +43,6 @@ public interface KVEngine {
     /**
      *
      * @param snapshot Snapshot to release
-     * @return status of this operation
      */
     void releaseSnapshot(final Object snapshot);
 

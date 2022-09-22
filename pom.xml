@@ -40,12 +40,14 @@
             <artifactId>guava</artifactId>
             <version>31.0.1-jre</version>
         </dependency>
-        <!-- Log system, keep away from log4j. -->
+
+        <!-- logging. -->
         <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <version>1.1.2</version>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+            <version>1.2</version>
         </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

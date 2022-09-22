@@ -6,7 +6,7 @@ public class GraphSpaceID {
     // not unique
     private final String graphName;
 
-    GraphSpaceID(int graphId, String graphName) {
+    public GraphSpaceID(int graphId, String graphName) {
         this.graphId = graphId;
         this.graphName = graphName;
     }
