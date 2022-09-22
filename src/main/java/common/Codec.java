@@ -4,8 +4,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.nustaq.serialization.FSTConfiguration;
 
-import java.nio.charset.StandardCharsets;
-
 // https://github.com/RuedigerMoeller/fast-serialization/wiki/Serialization
 // Make sure you read the link before you change this implementation.
 // Refer test/common/CodingTest.java for more usage example.
@@ -23,7 +21,7 @@ import java.nio.charset.StandardCharsets;
 //      key: NodeId(long) + timestamp(long) + String
 // For edge:
 //      key: StartNodeId(long) + EndNodeId(long) + timestamp(long) + String
-// For vertex/edge String, we use encode/decodeString to encode/decode.
+// For vertex/edge temporal property key, you should custom your own prefix/range consistency Codec.
 public class Codec {
     // We aim to be compatible with Neo4j, thus we only preregister the class that Neo4j supports.
     // https://neo4j.com/docs/java-reference/4.4/javadocs/org/neo4j/graphdb/Entity.html
@@ -45,12 +43,5 @@ public class Codec {
         return conf.get().asObject(bytes);
     }
 
-    public static byte[] encodeString(String key) {
-        return key.getBytes(StandardCharsets.UTF_8);
-    }
-
-    public static String decodeString(byte[] bytes) {
-        return new String(bytes);
-    }
 
 }

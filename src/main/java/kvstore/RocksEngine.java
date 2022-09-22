@@ -1,7 +1,6 @@
 package kvstore;
 
 import com.google.common.base.Preconditions;
-import common.Codec;
 import common.Pair;
 import impl.tgraphdb.GraphSpaceID;
 import org.apache.commons.logging.Log;
@@ -166,7 +165,7 @@ public class RocksEngine implements KVEngine {
                 readOptions.setSnapshot(snap);
             }
             try (var iter = db.newIterator(readOptions)) {
-                if (iter.isValid()) {
+                if (iter != null) {
                     iter.seekForPrev(key);
                     if (iter.isValid()) {
                         return iter.value();
@@ -205,7 +204,6 @@ public class RocksEngine implements KVEngine {
             if (snapshot != null) {
                 readOptions.setSnapshot((Snapshot) snapshot);
             }
-            //readOptions.setPrefixSameAsStart(true);
             var iter = db.newIterator(readOptions);
             if (iter != null) {
                 iter.seek(prefix);
@@ -217,8 +215,6 @@ public class RocksEngine implements KVEngine {
     @Override
     public KVIterator rangeWithPrefix(byte[] start, byte[] prefix) {
         try (ReadOptions readOptions = new ReadOptions()) {
-            // we should guarantee the order.
-            readOptions.setTotalOrderSeek(true);
             var iter = db.newIterator(readOptions);
             if (iter != null) {
                 iter.seek(start);

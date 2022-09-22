@@ -6,6 +6,9 @@ import org.junit.jupiter.api.Test;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+
 import static common.Codec.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -73,31 +76,52 @@ public class RocksEngineTest {
         }
     }
 
-    // TODO(crusher): figure out the semantics here.
+    // only used for this ut.
+    private static byte[] intToBytes(final int num) {
+        ByteBuffer buffer = ByteBuffer.allocate(4);
+        buffer.putInt(num);
+        return buffer.array();
+    }
+
+    // only used for this ut.
+    private static int bytesToInt(final byte[] bytes) {
+        return ByteBuffer.wrap(bytes).getInt();
+    }
+
+
     @Test
     void testRangeIter() {
         GraphSpaceID graph3 = new GraphSpaceID(4, "test-graph-iter-range");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph3.getGraphName();
         KVEngine kv = new RocksEngine(graph3, baseDir + dataDir, false);
-        String k = "k";
         String v = "v";
-        // put [k0, k20)
+        // put [0, 20)
         for (int i = 0; i < 20; ++i) {
-            assertTrue(kv.put(encodeString(k + i), encodeValue(v + i)));
+            assertTrue(kv.put(intToBytes(i), encodeValue(v + i)));
         }
-        // read [k0, k10)
-        try (var iter = kv.range(encodeString(k + "0"), encodeString(k + "10"))) {
+        // read [0, 10)
+        try (var iter = kv.range(intToBytes(0), intToBytes(10))) {
             int ind = 0;
             while (iter.valid()) {
-                log.info(String.format("key is %s.", decodeString(iter.key())));
-                assertArrayEquals(iter.key(), encodeString(k + ind));
+                log.info(String.format("key is %s.", bytesToInt(iter.key())));
+                assertArrayEquals(iter.key(), intToBytes(ind));
                 assertArrayEquals(iter.value(), encodeValue(v + ind));
                 iter.next();
                 ++ind;
             }
             assertEquals(10, ind);
         }
+    }
+
+    // only used for this ut.
+    private static byte[] encodeString(String key) {
+        return key.getBytes(StandardCharsets.UTF_8);
+    }
+
+    // only used for this ut.
+    private static String decodeString(byte[] bytes) {
+        return new String(bytes);
     }
 
     @Test
@@ -125,6 +149,14 @@ public class RocksEngineTest {
         }
     }
 
+
+    // only used in this ut
+    private static byte[] rangePrefixKey(String prefix, int ord) {
+        ByteBuffer buffer = ByteBuffer.allocate(prefix.getBytes(StandardCharsets.UTF_8).length + 4);
+        buffer.put(prefix.getBytes(StandardCharsets.UTF_8));
+        buffer.putInt(ord);
+        return buffer.array();
+    }
     @Test
     void testRangePrefixIter() {
         GraphSpaceID graph3 = new GraphSpaceID(4, "test-graph-iter-range-prefix");
@@ -132,13 +164,38 @@ public class RocksEngineTest {
         String dataDir = graph3.getGraphName();
         KVEngine kv = new RocksEngine(graph3, baseDir + dataDir, false);
         String prefix = "crusher-";
+        String v = "v";
+        // put [0, 20)
+        for (int i = 0; i < 20; ++i) {
+            assertTrue(kv.put(rangePrefixKey(prefix, i), encodeValue(v + i)));
+        }
+        // range prefix start from crusher-10;
+        try (var iter = kv.rangeWithPrefix(rangePrefixKey(prefix, 10), encodeString(prefix))) {
+            int ind = 10;
+            while (iter.valid()) {
+                assertArrayEquals(rangePrefixKey(prefix, ind), iter.key());
+                assertArrayEquals(encodeValue(v + ind), iter.value());
+                iter.next();
+                ++ind;
+            }
+            assertEquals(20, ind);
+        }
     }
 
     @Test
-    void testMore() {
-        GraphSpaceID graph4 = new GraphSpaceID(5, "test-graph-more");
+    void testGetForPrev() {
+        GraphSpaceID graph4 = new GraphSpaceID(5, "test-graph-get-for-prev");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph4.getGraphName();
         KVEngine kv = new RocksEngine(graph4, baseDir + dataDir, false);
+        String v = "v";
+        // put even [0, 20)
+        for (int i = 0; i < 20; i += 2) {
+            assertTrue(kv.put(intToBytes(i), encodeValue(v + i)));
+        }
+        // get odd in [0, 20)
+        for (int i = 1; i < 20; i += 2) {
+            assertArrayEquals(encodeValue(v + (i - 1)), kv.getForPrev(intToBytes(i), null));
+        }
     }
 }

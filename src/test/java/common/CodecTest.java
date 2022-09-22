@@ -77,14 +77,4 @@ public class CodecTest {
         assertFalse(Bytes.startsWith(encodeValue(k0), encodeValue(prefix)));
         assertFalse(Bytes.startsWith(encodeValue(k1), encodeValue(prefix)));
     }
-
-    @Test
-    void testPrefixConsistencyCodec() {
-        String prefix = "crusher-";
-        String k0 = prefix + "k0";
-        String k1 = prefix + "k1";
-        assertTrue(Bytes.startsWith(encodeString(k0), encodeString(prefix)));
-        assertTrue(Bytes.startsWith(encodeString(k1), encodeString(prefix)));
-        assertEquals(k0, decodeString(encodeString(k0)));
-    }
 }
