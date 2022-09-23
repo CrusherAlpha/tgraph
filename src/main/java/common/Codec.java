@@ -18,9 +18,9 @@ import org.nustaq.serialization.FSTConfiguration;
 // And we know Neo4j entity property key should always be String object.
 // For temporal property key, we distinguish it by vertex and edge.
 // For vertex:
-//      key: NodeId(long) + timestamp(long) + String
+//      key: NodeId(long) + String + timestamp(long)
 // For edge:
-//      key: StartNodeId(long) + EndNodeId(long) + timestamp(long) + String
+//      key: StartNodeId(long) + EndNodeId(long) + String + timestamp(long)
 // For vertex/edge temporal property key, you should custom your own prefix/range consistency Codec.
 public class Codec {
     // We aim to be compatible with Neo4j, thus we only preregister the class that Neo4j supports.

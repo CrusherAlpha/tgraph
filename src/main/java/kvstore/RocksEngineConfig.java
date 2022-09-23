@@ -3,6 +3,7 @@ package kvstore;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.rocksdb.*;
+import org.rocksdb.util.BytewiseComparator;
 
 import java.util.HashMap;
 
