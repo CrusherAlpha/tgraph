@@ -1,11 +1,11 @@
 package property;
 
-public class NodeTemporalPropertyKey {
+public class VertexTemporalPropertyKey {
     private long nodeId;
     private long timestamp;
     private String propertyName;
 
-    public NodeTemporalPropertyKey(long nodeId, long timestamp, String propertyName) {
+    public VertexTemporalPropertyKey(long nodeId, long timestamp, String propertyName) {
         this.nodeId = nodeId;
         this.timestamp = timestamp;
         this.propertyName = propertyName;
