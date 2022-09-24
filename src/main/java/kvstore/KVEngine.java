@@ -62,11 +62,11 @@ public interface KVEngine {
      * the effect is caused by operations less or equal 9:00 am.
      * @param key Key
      * @param snapshot read from this snapshot
-     * @return Value
+     * @return Pair: first is prev_key, second is prev_value
      */
-    byte[] getForPrev(byte[] key, Object snapshot);
+    Pair<byte[], byte[]> getForPrev(byte[] key, Object snapshot);
 
-    List<byte[]> multiGetForPrev(List<byte[]> keys);
+    List<Pair<byte[], byte[]>> multiGetForPrev(List<byte[]> keys);
 
     /**
      * Get all results in range [start, end).
@@ -75,6 +75,16 @@ public interface KVEngine {
      * @return Iterator in range [start, end).
      */
     KVIterator range(byte[] start, byte[] end);
+
+    /**
+     * Get all results which is the max key <= key in range [start, end).
+     * Eg: <k1, v1>, <k4, v4>,  <k9, v9> in db.
+     * when user pass [2, 5), v1 and v4 will be returned.
+     * @param start Start key, inclusive.
+     * @param end End key, exclusive.
+     * @return Iterator in range [start, end).
+     */
+    KVIterator rangePrev(byte[] start, byte[] end);
 
     /**
      * Get all results with 'prefix' as prefix.
@@ -91,6 +101,14 @@ public interface KVEngine {
      * @return Iterator of keys starts with 'prefix' beginning from 'start'.
      */
     KVIterator rangeWithPrefix(byte[] start, byte[] prefix);
+
+    /**
+     * Get all results with 'prefix' as prefix starting from the key which is the max key <= 'start'.
+     * @param start Start key, inclusive.
+     * @param prefix The prefix of keys to iterate.
+     * @return Iterator of keys starts with 'prefix' beginning from the key which is the max key <= 'start'.
+     */
+    KVIterator rangePrevWithPrefix(byte[] start, byte[] prefix);
 
     /**
      * Put a single key/value pair.

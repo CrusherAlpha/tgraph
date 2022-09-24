@@ -40,7 +40,7 @@ public class Codec {
     }
 
     public static Object decodeValue(byte[] bytes) {
-        return conf.get().asObject(bytes);
+        return bytes == null ? null : conf.get().asObject(bytes);
     }
 
 

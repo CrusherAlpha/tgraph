@@ -30,17 +30,19 @@ public class RocksEngine implements KVEngine {
 
     private final Options opt;
 
+    private final Comparator comparator;
 
-    public RocksEngine(GraphSpaceID graph, String dataPath, boolean readonly) {
-        Preconditions.checkNotNull(graph);
-        Preconditions.checkNotNull(dataPath);
-        if (!Files.exists(Paths.get(dataPath))) {
-            if (readonly) {
-                log.error(String.format("Path %s not exist.", dataPath));
+
+    public RocksEngine(StoreOptions storeOptions) {
+        Preconditions.checkNotNull(storeOptions.getGraph());
+        Preconditions.checkNotNull(storeOptions.getDataPath());
+        if (!Files.exists(Paths.get(storeOptions.getDataPath()))) {
+            if (storeOptions.isReadonly()) {
+                log.error(String.format("Path %s not exist.", storeOptions.getDataPath()));
                 System.exit(-1);
             } else {
                 try {
-                    Files.createDirectories(Paths.get(dataPath));
+                    Files.createDirectories(Paths.get(storeOptions.getDataPath()));
                 } catch (IOException e) {
                     e.printStackTrace();
                     log.error("Create data path failed.");
@@ -48,18 +50,22 @@ public class RocksEngine implements KVEngine {
                 }
             }
         }
-        if (!Files.isDirectory(Paths.get(dataPath))) {
+        if (!Files.isDirectory(Paths.get(storeOptions.getDataPath()))) {
             log.error("Data path is not a directory");
             System.exit(-1);
         }
-        this.graph = graph;
-        this.dataPath = dataPath;
+        this.graph = storeOptions.getGraph();
+        this.dataPath = storeOptions.getDataPath();
         this.opt = RocksEngineConfig.InitRocksdbOptions();
         if (opt == null) {
             log.error("Init Rocksdb Options Failed.");
             System.exit(-1);
         }
-        if (readonly) {
+        this.comparator = storeOptions.getComparator();
+        if (this.comparator != null) {
+            this.opt.setComparator(this.comparator.getRocksComparator());
+        }
+        if (storeOptions.isReadonly()) {
             try {
                 db = RocksDB.openReadOnly(opt, dataPath);
             } catch (RocksDBException e) {
@@ -158,7 +164,7 @@ public class RocksEngine implements KVEngine {
     }
 
     @Override
-    public byte[] getForPrev(byte[] key, Object snapshot) {
+    public Pair<byte[], byte[]> getForPrev(byte[] key, Object snapshot) {
         Snapshot snap = (Snapshot) snapshot;
         try (ReadOptions readOptions = new ReadOptions()) {
             if (snap != null) {
@@ -168,7 +174,7 @@ public class RocksEngine implements KVEngine {
                 if (iter != null) {
                     iter.seekForPrev(key);
                     if (iter.isValid()) {
-                        return iter.value();
+                        return Pair.of(iter.key(), iter.value());
                     }
                 }
             }
@@ -177,12 +183,12 @@ public class RocksEngine implements KVEngine {
     }
 
     @Override
-    public List<byte[]> multiGetForPrev(List<byte[]> keys) {
+    public List<Pair<byte[], byte[]>> multiGetForPrev(List<byte[]> keys) {
         try (var iter = db.newIterator()) {
-            ArrayList<byte[]> values = new ArrayList<>();
+            ArrayList<Pair<byte[], byte[]>> values = new ArrayList<>();
             for (var key : keys) {
                 iter.seekForPrev(key);
-                values.add(iter.isValid() ? iter.value() : null);
+                values.add(iter.isValid() ? Pair.of(iter.key(), iter.value()) : null);
             }
             return values;
         }
@@ -193,7 +199,17 @@ public class RocksEngine implements KVEngine {
         var iter = db.newIterator();
         if (iter != null) {
             iter.seek(start);
-            return new RocksRangeIterator(start, end, iter);
+            return new RocksRangeIterator(end, iter, comparator);
+        }
+        return null;
+    }
+
+    @Override
+    public KVIterator rangePrev(byte[] start, byte[] end) {
+        var iter = db.newIterator();
+        if (iter != null) {
+            iter.seekForPrev(start);
+            return new RocksRangeIterator(end, iter, comparator);
         }
         return null;
     }
@@ -218,6 +234,17 @@ public class RocksEngine implements KVEngine {
             var iter = db.newIterator(readOptions);
             if (iter != null) {
                 iter.seek(start);
+            }
+            return new RocksPrefixIterator(prefix, iter);
+        }
+    }
+
+    @Override
+    public KVIterator rangePrevWithPrefix(byte[] start, byte[] prefix) {
+        try (ReadOptions readOptions = new ReadOptions()) {
+            var iter = db.newIterator(readOptions);
+            if (iter != null) {
+                iter.seekForPrev(start);
             }
             return new RocksPrefixIterator(prefix, iter);
         }

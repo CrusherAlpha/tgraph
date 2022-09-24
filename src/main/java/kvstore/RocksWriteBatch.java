@@ -5,7 +5,7 @@ import org.rocksdb.RocksDBException;
 public class RocksWriteBatch implements WriteBatch {
     private final org.rocksdb.WriteBatch wb;
 
-    RocksWriteBatch() {
+    public RocksWriteBatch() {
         this.wb = new org.rocksdb.WriteBatch(RocksEngineConfig.rocksdb_batch_size);
     }
     @Override

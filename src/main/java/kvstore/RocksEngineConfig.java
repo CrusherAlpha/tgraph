@@ -72,6 +72,7 @@ public class RocksEngineConfig {
     private static final Log log = LogFactory.getLog(RocksEngineConfig.class);
 
     // NOTE!: caller should guarantee to close it.
+    // We don't set custom comparator here, leave it to upper layer.
     static Options InitRocksdbOptions() {
 
         // set the general compression algorithm
@@ -105,6 +106,7 @@ public class RocksEngineConfig {
         }
 
         BlockBasedTableConfig block_opt = new BlockBasedTableConfig();
+
 
         if (rocksdb_block_cache <= 0) {
             block_opt.setNoBlockCache(true);

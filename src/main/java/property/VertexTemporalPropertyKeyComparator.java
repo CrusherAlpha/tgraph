@@ -7,7 +7,7 @@ import org.rocksdb.ComparatorOptions;
 import java.nio.ByteBuffer;
 
 // This comparator assumes keys are VertexTemporalPropertyKey
-// nodeId(long, 64-bit) - timestamp(long, 64-bit) - propertyName(String)
+// nodeId(long, 64-bit) - propertyName(String) - timestamp(long, 64-bit)
 // Caller must guarantee that in accessing other APIs in combination with this comparator.
 public final class VertexTemporalPropertyKeyComparator extends AbstractComparator {
 

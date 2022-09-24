@@ -7,7 +7,7 @@ import org.rocksdb.ComparatorOptions;
 import java.nio.ByteBuffer;
 
 // This comparator assumes keys are EdgeTemporalPropertyKey
-// startNodeId(long, 64-bit) - endNodeId(long, 64-bit) - timestamp(long, 64-bit) - propertyName(String)
+// startNodeId(long, 64-bit) - endNodeId(long, 64-bit) - propertyName(String) - timestamp(long, 64-bit)
 // Caller must guarantee that in accessing other APIs in combination with this comparator.
 public final class EdgeTemporalPropertyKeyComparator extends AbstractComparator {
     public EdgeTemporalPropertyKeyComparator(ComparatorOptions comparatorOptions) {

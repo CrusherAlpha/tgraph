@@ -1,23 +1,42 @@
 package kvstore;
 
-import common.BytewiseComparator;
 import org.rocksdb.RocksIterator;
+
+import java.nio.ByteBuffer;
+
+import static common.Bytes.memcmp;
 
 public class RocksRangeIterator implements KVIterator {
     private final byte[] end;
     private final RocksIterator iter;
+    private final Comparator comparator;
 
-    public RocksRangeIterator(byte[] start, byte[] end, RocksIterator iter) {
+    public RocksRangeIterator(byte[] end, RocksIterator iter, Comparator comparator) {
         this.end = end;
         this.iter = iter;
-        if (iter != null) {
-            iter.seek(start);
+        this.comparator = comparator;
+    }
+
+    private int compare(byte[] start, byte[] end) {
+        if (comparator != null) {
+            return comparator.compare(start, end);
         }
+        // if comparator is null, we use bytewise comparator
+        int minLen = Math.min(start.length, end.length);
+        int r = memcmp(ByteBuffer.wrap(start), ByteBuffer.wrap(end), 0, minLen);
+        if (r == 0) {
+            if (start.length < end.length) {
+                r = -1;
+            } else if (start.length > end.length) {
+                r = 1;
+            }
+        }
+        return r;
     }
 
     @Override
     public boolean valid() {
-        return iter != null && iter.isValid() && BytewiseComparator.INSTANCE.getInstance().compare(iter.key(), end) < 0;
+        return iter != null && iter.isValid() && compare(iter.key(), end) < 0;
     }
 
     @Override
