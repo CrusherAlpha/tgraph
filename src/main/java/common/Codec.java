@@ -4,6 +4,9 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.nustaq.serialization.FSTConfiguration;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+
 // https://github.com/RuedigerMoeller/fast-serialization/wiki/Serialization
 // Make sure you read the link before you change this implementation.
 // Refer test/common/CodingTest.java for more usage example.
@@ -42,6 +45,25 @@ public class Codec {
     public static Object decodeValue(byte[] bytes) {
         return bytes == null ? null : conf.get().asObject(bytes);
     }
+
+    public static byte[] encodeString(String key) {
+        return key.getBytes(Charset.defaultCharset());
+    }
+
+    public static String decodeString(byte[] bytes) {
+        return new String(bytes);
+    }
+
+    public static byte[] longToBytes(final long num) {
+        ByteBuffer buffer = ByteBuffer.allocate(8);
+        buffer.putLong(num);
+        return buffer.array();
+    }
+
+    public static long bytesToLong(final byte[] bytes) {
+        return ByteBuffer.wrap(bytes).getLong();
+    }
+
 
 
 }

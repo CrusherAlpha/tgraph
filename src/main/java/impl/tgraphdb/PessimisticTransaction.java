@@ -6,7 +6,7 @@ import api.tgraphdb.Transaction;
 import org.neo4j.graphdb.*;
 import property.EdgeTemporalPropertyStore;
 import property.VertexTemporalPropertyStore;
-import wal.LogStore;
+import txn.LogStore;
 
 import java.util.Map;
 

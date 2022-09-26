@@ -7,10 +7,10 @@ import kvstore.KVEngine;
 import kvstore.RocksEngine;
 import kvstore.StoreOptions;
 
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 
+// <String, long>: <databaseName, graphID>
 public class MetaDB {
     private final KVEngine db;
 
@@ -20,24 +20,26 @@ public class MetaDB {
         this.db = new RocksEngine(opt);
     }
 
-    boolean put(String databaseName, Long graphID) {
-        return db.put(databaseName.getBytes(Charset.defaultCharset()), Codec.encodeValue(graphID));
+    void put(String key, long value) {
+        db.put(Codec.encodeString(key), Codec.longToBytes(value));
     }
 
-    String get(String databaseName) {
-        var ret = db.get(databaseName.getBytes(Charset.defaultCharset()), null);
-        return ret == null ? null : new String(ret);
+    String get(String key) {
+        var ret = db.get(Codec.encodeString(key), null);
+        return ret == null ? null : Codec.decodeString(ret);
     }
 
-    boolean delete(String databaseName) {
-        return db.remove(databaseName.getBytes(Charset.defaultCharset()));
+    void delete(String key) {
+        db.remove(Codec.encodeString(key));
     }
 
     List<Pair<String, Long>> scan() {
         var all = db.scan();
         List<Pair<String, Long>> ret = new ArrayList<>();
         for (var pr : all) {
-            ret.add(Pair.of(new String(pr.first()), (Long) Codec.decodeValue(pr.second())));
+            String key = Codec.decodeString(pr.first());
+            long val = Codec.bytesToLong(pr.second());
+            ret.add(Pair.of(key, val));
         }
         return ret;
     }

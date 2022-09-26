@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+// NOTE!: dbms is not thread safe
 public class DatabaseManager implements DatabaseManagementService {
 
     private final MetaDB metaDB;
