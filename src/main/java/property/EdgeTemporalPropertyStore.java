@@ -17,6 +17,9 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
+// NOTE!: get everything in memory may cause OOM.
+// TODO(crusher): fix it use PropertyIter
+
 // Every write will be in memory until Commit.
 // Read will go into underlying store.
 // And for Neo4j semantic compatibility, write should not be read until commit,

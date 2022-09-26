@@ -358,4 +358,17 @@ public class RocksEngine implements KVEngine {
         }
         return false;
     }
+
+    @Override
+    public List<Pair<byte[], byte[]>> scan() {
+        List<Pair<byte[], byte[]>> ret = new ArrayList<>();
+        try (var iter = db.newIterator()) {
+            iter.seekToFirst();
+            while (iter.isValid()) {
+                ret.add(Pair.of(iter.key(), iter.value()));
+                iter.next();
+            }
+        }
+        return ret;
+    }
 }

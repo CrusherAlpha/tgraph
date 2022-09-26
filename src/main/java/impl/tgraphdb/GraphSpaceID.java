@@ -1,5 +1,6 @@
 package impl.tgraphdb;
 
+// 0 is for meta
 public class GraphSpaceID {
     // unique
     private final int graphId;

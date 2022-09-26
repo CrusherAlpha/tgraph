@@ -3,7 +3,6 @@ package api.dbms;
 import api.tgraphdb.TGraphDatabaseService;
 import org.neo4j.dbms.api.DatabaseExistsException;
 import org.neo4j.dbms.api.DatabaseNotFoundException;
-import org.neo4j.graphdb.config.Configuration;
 
 import java.util.List;
 
@@ -23,18 +22,7 @@ public interface DatabaseManagementService {
      * @param databaseName name of the database.
      * @throws DatabaseExistsException if a database with the provided name already exists
      */
-    default void createDatabase(String databaseName) throws DatabaseExistsException {
-        createDatabase(databaseName, Configuration.EMPTY);
-    }
-
-    /**
-     * Create a new database.
-     *
-     * @param databaseName             name of the database.
-     * @param databaseSpecificSettings settings that are specific to this database. Only a sub-set of settings are supported TODO.
-     * @throws DatabaseExistsException if a database with the provided name already exists
-     */
-    void createDatabase(String databaseName, Configuration databaseSpecificSettings) throws DatabaseExistsException;
+    void createDatabase(String databaseName) throws DatabaseExistsException;
 
     /**
      * Drop a database by name. All data stored in the database will be deleted as well.
@@ -66,7 +54,7 @@ public interface DatabaseManagementService {
     List<String> listDatabases();
 
     /**
-     * Shutdown database server.
+     * Shutdown database manager.
      */
     void shutdown();
 }

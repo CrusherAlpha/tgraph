@@ -36,4 +36,5 @@ public class RocksCommonIterator implements KVIterator {
     public void close() {
         iter.close();
     }
+
 }

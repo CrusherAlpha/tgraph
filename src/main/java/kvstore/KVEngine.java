@@ -153,4 +153,7 @@ public interface KVEngine {
      */
     boolean flush();
 
+    // NOTE!: only used in meta db.
+    List<Pair<byte[], byte[]>> scan();
+
 }
