@@ -5,25 +5,35 @@ import api.tgraphdb.Transaction;
 import org.neo4j.graphdb.GraphDatabaseService;
 import property.EdgeTemporalPropertyStore;
 import property.VertexTemporalPropertyStore;
-import txn.LogStore;
+import txn.TransactionManager;
 
 import java.util.concurrent.TimeUnit;
 
-// TGraphDatabase hold GraphDatabaseService(Neo4j), VertexTemporalPropertyStore, EdgeTemporalPropertyStore, LogStore
+// TGraphDatabase:
+//      Store: hold GraphStore(Neo4j), VertexTemporalPropertyStore, EdgeTemporalPropertyStore
+//      Transaction: TransactionManager
+// TODO(crusher): purge thread and background thread.
 public class TGraphDatabase implements TGraphDatabaseService {
 
+    // graph identifier.
+    private final GraphSpaceID graphSpaceID;
+
+    // store
     private final GraphDatabaseService graph;
     private final VertexTemporalPropertyStore vertex;
     private final EdgeTemporalPropertyStore edge;
-    private final LogStore logStore;
-    private final String name;
 
-    public TGraphDatabase(String databaseName, GraphDatabaseService graph, VertexTemporalPropertyStore vertex, EdgeTemporalPropertyStore edge, LogStore logStore) {
+    // transaction
+    private final TransactionManager txnManager;
+
+    // GraphDatabaseService is acquired through neo4j dbms, thus should be passed into Constructor.
+    // GraphSpaceID is managed by dbms, thus should be passed into Constructor.
+    public TGraphDatabase(GraphSpaceID graphSpaceID, GraphDatabaseService graph) {
+        this.graphSpaceID = graphSpaceID;
         this.graph = graph;
-        this.vertex = vertex;
-        this.edge = edge;
-        this.logStore = logStore;
-        this.name = databaseName;
+        this.vertex = new VertexTemporalPropertyStore(graphSpaceID, graphSpaceID.getDatabasePath() + "/vertex", false);
+        this.edge = new EdgeTemporalPropertyStore(graphSpaceID, graphSpaceID.getDatabasePath() + "/edge", false);
+        this.txnManager = new TransactionManager(graphSpaceID);
     }
 
     @Override
@@ -43,6 +53,6 @@ public class TGraphDatabase implements TGraphDatabaseService {
 
     @Override
     public String databaseName() {
-        return name;
+        return graph.databaseName();
     }
 }

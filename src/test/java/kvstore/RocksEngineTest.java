@@ -20,7 +20,7 @@ public class RocksEngineTest {
     private static final Log log = LogFactory.getLog(RocksEngineTest.class);
     @Test
     void testBase() {
-        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-base");
+        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-base", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph0.getGraphName();
         StoreOptions opt = StoreOptions.of(graph0, baseDir + dataDir, false, null);
@@ -34,7 +34,7 @@ public class RocksEngineTest {
 
     @Test
     void testSnapshot() {
-        GraphSpaceID graph1 = new GraphSpaceID(2, "test-graph-snapshot");
+        GraphSpaceID graph1 = new GraphSpaceID(2, "test-graph-snapshot", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph1.getGraphName();
         StoreOptions opt = StoreOptions.of(graph1, baseDir + dataDir, false, null);
@@ -58,7 +58,7 @@ public class RocksEngineTest {
 
     @Test
     void testWriteBatch() {
-        GraphSpaceID graph2 = new GraphSpaceID(3, "test-graph-wb");
+        GraphSpaceID graph2 = new GraphSpaceID(3, "test-graph-wb", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph2.getGraphName();
         StoreOptions opt = StoreOptions.of(graph2, baseDir + dataDir, false, null);
@@ -97,7 +97,7 @@ public class RocksEngineTest {
 
     @Test
     void testRangeIter() {
-        GraphSpaceID graph3 = new GraphSpaceID(4, "test-graph-iter-range");
+        GraphSpaceID graph3 = new GraphSpaceID(4, "test-graph-iter-range", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph3.getGraphName();
         StoreOptions opt = StoreOptions.of(graph3, baseDir + dataDir, false, null);
@@ -123,7 +123,7 @@ public class RocksEngineTest {
 
     @Test
     void testRangePrevIter() {
-        GraphSpaceID graph3 = new GraphSpaceID(4, "test-graph-iter-range-prev");
+        GraphSpaceID graph3 = new GraphSpaceID(4, "test-graph-iter-range-prev", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph3.getGraphName();
         StoreOptions opt = StoreOptions.of(graph3, baseDir + dataDir, false, null);
@@ -163,7 +163,7 @@ public class RocksEngineTest {
 
     @Test
     void testPrefixIter() {
-        GraphSpaceID graph3 = new GraphSpaceID(4, "test-graph-iter-prefix");
+        GraphSpaceID graph3 = new GraphSpaceID(4, "test-graph-iter-prefix", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph3.getGraphName();
         StoreOptions opt = StoreOptions.of(graph3, baseDir + dataDir, false, null);
@@ -197,7 +197,7 @@ public class RocksEngineTest {
     }
     @Test
     void testRangePrefixIter() {
-        GraphSpaceID graph3 = new GraphSpaceID(4, "test-graph-iter-range-prefix");
+        GraphSpaceID graph3 = new GraphSpaceID(4, "test-graph-iter-range-prefix", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph3.getGraphName();
         StoreOptions opt = StoreOptions.of(graph3, baseDir + dataDir, false, null);
@@ -223,7 +223,7 @@ public class RocksEngineTest {
 
     @Test
     void testRangePrevPrefixIter() {
-        GraphSpaceID graph3 = new GraphSpaceID(4, "test-graph-iter-range-prev-prefix");
+        GraphSpaceID graph3 = new GraphSpaceID(4, "test-graph-iter-range-prev-prefix", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph3.getGraphName();
         StoreOptions opt = StoreOptions.of(graph3, baseDir + dataDir, false, null);
@@ -249,7 +249,7 @@ public class RocksEngineTest {
 
     @Test
     void testGetForPrev() {
-        GraphSpaceID graph4 = new GraphSpaceID(5, "test-graph-get-for-prev");
+        GraphSpaceID graph4 = new GraphSpaceID(5, "test-graph-get-for-prev", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph4.getGraphName();
         StoreOptions opt = StoreOptions.of(graph4, baseDir + dataDir, false, null);
@@ -267,7 +267,7 @@ public class RocksEngineTest {
 
     @Test
     void testMultiGetForPrev() {
-        GraphSpaceID graph4 = new GraphSpaceID(5, "test-graph-multi-get-for-prev");
+        GraphSpaceID graph4 = new GraphSpaceID(5, "test-graph-multi-get-for-prev", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph4.getGraphName();
         StoreOptions opt = StoreOptions.of(graph4, baseDir + dataDir, false, null);

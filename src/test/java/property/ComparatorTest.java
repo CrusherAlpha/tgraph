@@ -27,7 +27,7 @@ public class ComparatorTest {
     }
     @Test
     void testBase() {
-        GraphSpaceID graph = new GraphSpaceID(1, "test-comparator-base");
+        GraphSpaceID graph = new GraphSpaceID(1, "test-comparator-base", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph.getGraphName();
         StoreOptions opt = StoreOptions.of(graph, baseDir + dataDir, false, new Comparator(new IntComparator(new ComparatorOptions())));
@@ -42,7 +42,7 @@ public class ComparatorTest {
 
     @Test
     void testVertex() {
-        GraphSpaceID graph = new GraphSpaceID(1, "test-comparator-vertex");
+        GraphSpaceID graph = new GraphSpaceID(1, "test-comparator-vertex", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph.getGraphName();
         StoreOptions opt = StoreOptions.of(graph, baseDir + dataDir, false, new Comparator(new VertexTemporalPropertyKeyComparator(new ComparatorOptions())));
@@ -58,7 +58,7 @@ public class ComparatorTest {
 
     @Test
     void testEdge() {
-        GraphSpaceID graph = new GraphSpaceID(1, "test-comparator-edge");
+        GraphSpaceID graph = new GraphSpaceID(1, "test-comparator-edge", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph.getGraphName();
         StoreOptions opt = StoreOptions.of(graph, baseDir + dataDir, false, new Comparator(new EdgeTemporalPropertyKeyComparator(new ComparatorOptions())));

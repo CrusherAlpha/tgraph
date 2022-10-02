@@ -15,7 +15,7 @@ public class MetaDB {
     private final KVEngine db;
 
     public MetaDB(String databaseDirectory) {
-        GraphSpaceID metaGraph = new GraphSpaceID(0, "meta-db");
+        GraphSpaceID metaGraph = new GraphSpaceID(0, "meta-db", databaseDirectory);
         StoreOptions opt = StoreOptions.of(metaGraph, databaseDirectory);
         this.db = new RocksEngine(opt);
     }

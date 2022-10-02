@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class EdgeTemporalPropertyStoreTest {
     @Test
     void testBase() {
-        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-base");
+        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-base", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph0.getGraphName();
         var edge = new EdgeTemporalPropertyStore(graph0, baseDir + dataDir, false);
@@ -43,7 +43,7 @@ public class EdgeTemporalPropertyStoreTest {
 
     @Test
     void testGet() {
-        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-get");
+        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-get", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph0.getGraphName();
         EdgeTemporalPropertyStore edge = new EdgeTemporalPropertyStore(graph0, baseDir + dataDir, false);
@@ -77,7 +77,7 @@ public class EdgeTemporalPropertyStoreTest {
 
     @Test
     void testPrefixGet() {
-        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-prefix-get");
+        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-prefix-get", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph0.getGraphName();
         EdgeTemporalPropertyStore edge = new EdgeTemporalPropertyStore(graph0, baseDir + dataDir, false);
@@ -106,7 +106,7 @@ public class EdgeTemporalPropertyStoreTest {
 
     @Test
     void testRangeGet() {
-        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-range-get");
+        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-range-get", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph0.getGraphName();
         EdgeTemporalPropertyStore edge = new EdgeTemporalPropertyStore(graph0, baseDir + dataDir, false);
@@ -138,7 +138,7 @@ public class EdgeTemporalPropertyStoreTest {
 
     @Test
     void testRangePrefixGet() {
-        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-range-prefix-get");
+        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-range-prefix-get", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph0.getGraphName();
         EdgeTemporalPropertyStore edge = new EdgeTemporalPropertyStore(graph0, baseDir + dataDir, false);
@@ -158,7 +158,7 @@ public class EdgeTemporalPropertyStoreTest {
 
     @Test
     void testRemove() {
-        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-remove");
+        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-remove", "");
         String baseDir = "/Users/crusher/test/";
         String dataDir = graph0.getGraphName();
         EdgeTemporalPropertyStore edge = new EdgeTemporalPropertyStore(graph0, baseDir + dataDir, false);
