@@ -20,19 +20,19 @@ public class VertexTemporalPropertyWriteBatch implements AutoCloseable {
         this.store = store;
     }
 
-    boolean put(VertexTemporalPropertyKey key, Object value) {
+    public boolean put(VertexTemporalPropertyKey key, Object value) {
         return wb.put(key.toBytes(), Codec.encodeValue(value));
     }
 
-    boolean remove(VertexTemporalPropertyKey key) {
+    public boolean remove(VertexTemporalPropertyKey key) {
         return wb.remove(key.toBytes());
     }
 
-    boolean removeRange(VertexTemporalPropertyKey start, VertexTemporalPropertyKey end) {
+    public boolean removeRange(VertexTemporalPropertyKey start, VertexTemporalPropertyKey end) {
         return wb.removeRange(start.toBytes(), end.toBytes());
     }
 
-    boolean removePrefix(VertexTemporalPropertyKeyPrefix prefix) {
+    public boolean removePrefix(VertexTemporalPropertyKeyPrefix prefix) {
         try (var iter = store.prefix(prefix.toBytes(), null)) {
             while (iter.valid()) {
                 wb.remove(iter.key());

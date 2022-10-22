@@ -7,21 +7,14 @@ import property.EdgeTemporalPropertyStore;
 import property.VertexTemporalPropertyStore;
 import txn.TransactionManager;
 
-import java.util.concurrent.TimeUnit;
 
 // TGraphDatabase:
 //      Store: hold GraphStore(Neo4j), VertexTemporalPropertyStore, EdgeTemporalPropertyStore
 //      Transaction: TransactionManager
-// TODO(crusher): purge thread and background thread.
 public class TGraphDatabase implements TGraphDatabaseService {
 
-    // graph identifier.
-    private final GraphSpaceID graphSpaceID;
-
-    // store
+    // graph store
     private final GraphDatabaseService graph;
-    private final VertexTemporalPropertyStore vertex;
-    private final EdgeTemporalPropertyStore edge;
 
     // transaction
     private final TransactionManager txnManager;
@@ -29,11 +22,13 @@ public class TGraphDatabase implements TGraphDatabaseService {
     // GraphDatabaseService is acquired through neo4j dbms, thus should be passed into Constructor.
     // GraphSpaceID is managed by dbms, thus should be passed into Constructor.
     public TGraphDatabase(GraphSpaceID graphSpaceID, GraphDatabaseService graph) {
-        this.graphSpaceID = graphSpaceID;
+        // graph identifier.
         this.graph = graph;
-        this.vertex = new VertexTemporalPropertyStore(graphSpaceID, graphSpaceID.getDatabasePath() + "/vertex", false);
-        this.edge = new EdgeTemporalPropertyStore(graphSpaceID, graphSpaceID.getDatabasePath() + "/edge", false);
-        this.txnManager = new TransactionManager(graphSpaceID);
+        VertexTemporalPropertyStore vertex = new VertexTemporalPropertyStore(graphSpaceID, graphSpaceID.getDatabasePath() + "/vertex", false);
+        EdgeTemporalPropertyStore edge = new EdgeTemporalPropertyStore(graphSpaceID, graphSpaceID.getDatabasePath() + "/edge", false);
+        this.txnManager = new TransactionManager(graphSpaceID, graph, vertex, edge);
+        // start recovery
+        this.txnManager.recover();
     }
 
     @Override
@@ -43,12 +38,7 @@ public class TGraphDatabase implements TGraphDatabaseService {
 
     @Override
     public Transaction beginTx() {
-        return null;
-    }
-
-    @Override
-    public Transaction beginTx(long timeout, TimeUnit unit) {
-        return null;
+        return txnManager.beginTransaction();
     }
 
     @Override

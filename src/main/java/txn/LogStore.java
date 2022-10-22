@@ -46,6 +46,15 @@ public class LogStore {
         return store.put(Codec.longToBytes(txnID), batch.toBytes());
     }
 
+    // for purge thread to gc
+    public void multiDelete(List<Long> txnIDs) {
+        List<byte[]> keys = new ArrayList<>(txnIDs.size());
+        for (var txnID : txnIDs) {
+            keys.add(Codec.longToBytes(txnID));
+        }
+        store.multiRemove(keys);
+    }
+
     // used in failure recovery
     public List<LogEntry> multiRead(List<Long> txnIDs) {
         List<byte[]> keys = new ArrayList<>(txnIDs.size());

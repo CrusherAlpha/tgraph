@@ -16,19 +16,19 @@ public class EdgeTemporalPropertyWriteBatch implements AutoCloseable {
         this.store = store;
     }
 
-    boolean put(EdgeTemporalPropertyKey key, Object value) {
+    public boolean put(EdgeTemporalPropertyKey key, Object value) {
         return wb.put(key.toBytes(), Codec.encodeValue(value));
     }
 
-    boolean remove(EdgeTemporalPropertyKey key) {
+    public boolean remove(EdgeTemporalPropertyKey key) {
         return wb.remove(key.toBytes());
     }
 
-    boolean removeRange(EdgeTemporalPropertyKey start, EdgeTemporalPropertyKey end) {
+    public boolean removeRange(EdgeTemporalPropertyKey start, EdgeTemporalPropertyKey end) {
         return wb.removeRange(start.toBytes(), end.toBytes());
     }
 
-    boolean removePrefix(EdgeTemporalPropertyKeyPrefix prefix) {
+    public boolean removePrefix(EdgeTemporalPropertyKeyPrefix prefix) {
         try (var iter = store.prefix(prefix.toBytes(), null)) {
             while (iter.valid()) {
                 wb.remove(iter.key());

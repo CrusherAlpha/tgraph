@@ -1,6 +1,6 @@
 package txn;
 
-import api.tgraphdb.TGraphConfig;
+import impl.tgraphdb.TGraphConfig;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import common.Pair;
@@ -8,6 +8,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -59,6 +60,9 @@ public class LockManager implements AutoCloseable {
 
     private static final Log log = LogFactory.getLog(LockManager.class);
 
+    // hold running transaction map reference passed by TransactionManager.
+    private final ConcurrentHashMap<Long, TransactionImpl> txnMap;
+
     private final ReentrantLock mu = new ReentrantLock();
     // entity identifier + property name ->  the list of <timestamp, lock request queue>
     private final HashMap<TemporalPropertyID, ArrayList<Pair<Long, LockRequestQueue>>> lockTable = new HashMap<>(); // guarded by mu
@@ -68,11 +72,10 @@ public class LockManager implements AutoCloseable {
     private final HashMap<Long, List<Long>> waitFor = new HashMap<>();
     ScheduledExecutorService deadlockExe = Executors.newSingleThreadScheduledExecutor();
 
-    public LockManager() {
-        deadlockExe.scheduleAtFixedRate(deadLockDetector, TGraphConfig.DEADLOCK_DETECT_INTERNAL, TGraphConfig.DEADLOCK_DETECT_INTERNAL, TimeUnit.SECONDS);
+    public LockManager(ConcurrentHashMap<Long, TransactionImpl> txnMap) {
+        this.txnMap = txnMap;
+        deadlockExe.scheduleAtFixedRate(this::runCycleDetection, TGraphConfig.DEADLOCK_DETECT_INTERNAL, TGraphConfig.DEADLOCK_DETECT_INTERNAL, TimeUnit.SECONDS);
     }
-
-    Runnable deadLockDetector = this::runCycleDetection;
 
     private static void doAddEdge(long from, long to, HashMap<Long, List<Long>> graph) {
         var l = graph.computeIfAbsent(from, k -> new ArrayList<>());
@@ -139,7 +142,7 @@ public class LockManager implements AutoCloseable {
                 List<Long> wait = new ArrayList<>();
                 var que = pr.second();
                 for (var req : que.requestQueue) {
-                    var txn = TransactionManager.getTransaction(req.txnID);
+                    var txn = txnMap.get(req.txnID);
                     if (txn == null || txn.getState() == TransactionState.ABORTED) {
                         continue;
                     }
@@ -173,7 +176,7 @@ public class LockManager implements AutoCloseable {
                 }
 
                 // abort the victim
-                var txn = TransactionManager.getTransaction(victim.get());
+                var txn = txnMap.get(victim.get());
                 Preconditions.checkNotNull(txn);
                 txn.setState(TransactionState.ABORTED);
 

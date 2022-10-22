@@ -2,6 +2,7 @@ package txn;
 
 import api.tgraphdb.Node;
 import api.tgraphdb.Relationship;
+import impl.tgraphdb.TGraphConfig;
 import api.tgraphdb.Transaction;
 import org.neo4j.graphdb.*;
 import property.EdgeTemporalPropertyStore;
@@ -58,6 +59,10 @@ public class TransactionImpl implements Transaction {
         this.logWb = this.txnManager.getLogStore().startBatchWrite();
     }
 
+    public LogWriteBatch getLogWb() {
+        return logWb;
+    }
+
     public HashSet<TimePointTemporalPropertyID> getSharedLockSet() {
         return sharedLockSet;
     }
@@ -85,6 +90,18 @@ public class TransactionImpl implements Transaction {
 
     public long getTxnID() {
         return txnID;
+    }
+
+    public void writeCommitLog() {
+        graphTxn.createNode(Label.label(TGraphConfig.COMMIT_LOG_NODE_LABEL));
+    }
+
+    public VertexTemporalPropertyWriteBatch getVertexWb() {
+        return vertexWb;
+    }
+
+    public EdgeTemporalPropertyWriteBatch getEdgeWb() {
+        return edgeWb;
     }
 
     @Override

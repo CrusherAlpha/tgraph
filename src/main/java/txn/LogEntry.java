@@ -8,6 +8,10 @@ import property.VertexTemporalPropertyKey;
 
 import java.nio.ByteBuffer;
 
+enum LogEntryType {
+    VERTEX, EDGE
+}
+
 public class LogEntry {
     // 0x00 -> vertex
     // 0x01 -> edge
@@ -23,6 +27,11 @@ public class LogEntry {
         this.valueLength = value.length;
         this.key = key;
         this.value = value;
+    }
+
+    public LogEntryType type() {
+        Preconditions.checkState(type == 0x00 || type == 0x01);
+        return type == 0x00 ? LogEntryType.VERTEX : LogEntryType.EDGE;
     }
 
     public static LogEntry fromVertex(VertexTemporalPropertyKey key, Object value) {
