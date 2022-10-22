@@ -38,4 +38,6 @@ public interface TGraphDatabaseService {
      * @return database name
      */
     String databaseName();
+
+    void shutdown();
 }

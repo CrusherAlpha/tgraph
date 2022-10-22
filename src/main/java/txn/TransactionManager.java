@@ -52,6 +52,8 @@ public class TransactionManager implements AutoCloseable {
     final BlockingQueue<Long> purgeTransactions = new ArrayBlockingQueue<>(TGraphConfig.PURGE_BATCH_SIZE);
     final ScheduledExecutorService purgeThread = Executors.newSingleThreadScheduledExecutor();
 
+    private static final int SHUTDOWN_TIME = 2;
+
     public TransactionManager(GraphSpaceID graph, GraphDatabaseService neo, VertexTemporalPropertyStore vertex, EdgeTemporalPropertyStore edge) {
         this.neo = neo;
         this.vertex = vertex;
@@ -190,5 +192,16 @@ public class TransactionManager implements AutoCloseable {
     @Override
     public void close() throws Exception {
         // close background thread pool, purge thread, lock manager
+        backgroundTaskExecutor.shutdown();
+        if (!backgroundTaskExecutor.awaitTermination(SHUTDOWN_TIME, TimeUnit.SECONDS)) {
+            log.info(String.format("Background thread pool did not terminate in %d second(s).", SHUTDOWN_TIME));
+            backgroundTaskExecutor.shutdownNow();
+        }
+        purgeThread.shutdown();
+        if (!purgeThread.awaitTermination(SHUTDOWN_TIME, TimeUnit.SECONDS)) {
+            log.info(String.format("purge thread did not terminate in %d second(s).", SHUTDOWN_TIME));
+            purgeThread.shutdownNow();
+        }
+        lockManager.close();
     }
 }

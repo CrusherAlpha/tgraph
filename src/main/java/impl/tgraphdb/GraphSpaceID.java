@@ -1,22 +1,21 @@
 package impl.tgraphdb;
 
 public class GraphSpaceID {
-    // unique
-    // Note!: 0 is reserved for meta db.
-    private final int graphId;
+    // not unique and used for denoting meta-db now, left for future use.
+    private final long graphId;
     // unique, given by users, graphName == databaseName.
     private final String graphName;
     // unique
     private final String databasePath;
 
-    public GraphSpaceID(int graphId, String graphName, String databasePath) {
+    public GraphSpaceID(long graphId, String graphName, String databasePath) {
         this.graphId = graphId;
         this.graphName = graphName;
         this.databasePath = databasePath;
     }
 
 
-    public int getGraphId() {
+    public long getGraphId() {
         return graphId;
     }
 

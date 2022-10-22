@@ -2,6 +2,8 @@ package impl.tgraphdb;
 
 import api.tgraphdb.TGraphDatabaseService;
 import api.tgraphdb.Transaction;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.neo4j.graphdb.GraphDatabaseService;
 import property.EdgeTemporalPropertyStore;
 import property.VertexTemporalPropertyStore;
@@ -12,6 +14,8 @@ import txn.TransactionManager;
 //      Store: hold GraphStore(Neo4j), VertexTemporalPropertyStore, EdgeTemporalPropertyStore
 //      Transaction: TransactionManager
 public class TGraphDatabase implements TGraphDatabaseService {
+
+    private static Log log = LogFactory.getLog(TGraphDatabase.class);
 
     // graph store
     private final GraphDatabaseService graph;
@@ -44,5 +48,15 @@ public class TGraphDatabase implements TGraphDatabaseService {
     @Override
     public String databaseName() {
         return graph.databaseName();
+    }
+
+    @Override
+    public void shutdown() {
+        try {
+            txnManager.close();
+        } catch (Exception e) {
+            log.info("Transaction manager close failed.");
+            e.printStackTrace();
+        }
     }
 }

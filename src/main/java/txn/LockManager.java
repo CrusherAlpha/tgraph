@@ -495,7 +495,7 @@ public class LockManager implements AutoCloseable {
     public void close() throws Exception {
         deadlockExe.shutdown();
         if (!deadlockExe.awaitTermination(SHUTDOWN_TIME, TimeUnit.SECONDS)) {
-            log.info( String.format("Deadlock detector did not terminate in %d second(s).", SHUTDOWN_TIME));
+            log.info(String.format("Deadlock detector did not terminate in %d second(s).", SHUTDOWN_TIME));
             deadlockExe.shutdownNow();
         }
     }

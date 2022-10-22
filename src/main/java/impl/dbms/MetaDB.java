@@ -24,9 +24,9 @@ public class MetaDB {
         db.put(Codec.encodeString(key), Codec.longToBytes(value));
     }
 
-    String get(String key) {
+    Long get(String key) {
         var ret = db.get(Codec.encodeString(key), null);
-        return ret == null ? null : Codec.decodeString(ret);
+        return ret == null ? null : Codec.bytesToLong(ret);
     }
 
     void delete(String key) {
