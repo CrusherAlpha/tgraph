@@ -43,7 +43,7 @@ public class LogStore {
     }
 
     public boolean commitBatchWrite(long txnID, LogWriteBatch batch) {
-        return store.put(Codec.longToBytes(txnID), batch.toBytes());
+        return store.put(Codec.longToBytes(txnID), Codec.encodeValue(batch));
     }
 
     // for purge thread to gc
@@ -56,15 +56,15 @@ public class LogStore {
     }
 
     // used in failure recovery
-    public List<LogEntry> multiRead(List<Long> txnIDs) {
+    public List<LogWriteBatch> multiRead(List<Long> txnIDs) {
         List<byte[]> keys = new ArrayList<>(txnIDs.size());
         for (var txnID : txnIDs) {
             keys.add(Codec.longToBytes(txnID));
         }
         var values = store.multiGet(keys);
-        List<LogEntry> ret = new ArrayList<>(values.size());
+        List<LogWriteBatch> ret = new ArrayList<>(values.size());
         for (var value : values) {
-            ret.add(LogEntry.fromBytes(value));
+            ret.add((LogWriteBatch) Codec.decodeValue(value));
         }
         return ret;
     }

@@ -1,7 +1,5 @@
 package api.tgraphdb;
 
-import java.util.concurrent.TimeUnit;
-
 /**
  * <p>
  * TGraphDatabaseService represents a temporal graph database and is used to create

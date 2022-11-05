@@ -17,4 +17,8 @@ public class TGraphConfig {
     public static int PURGE_BATCH_SIZE = 100_000;
     // time unit: seconds
     public static int PURGE_INTERVAL = 5;
+
+
+    // temporal property
+    public static String TEMPORAL_PROPERTY_PREFIX = "t_";
 }

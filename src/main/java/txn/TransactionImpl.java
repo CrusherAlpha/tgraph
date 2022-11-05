@@ -2,15 +2,19 @@ package txn;
 
 import api.tgraphdb.Node;
 import api.tgraphdb.Relationship;
+import impl.tgraphdb.Edge;
 import impl.tgraphdb.TGraphConfig;
 import api.tgraphdb.Transaction;
+import impl.tgraphdb.Vertex;
 import org.neo4j.graphdb.*;
 import property.EdgeTemporalPropertyStore;
 import property.EdgeTemporalPropertyWriteBatch;
 import property.VertexTemporalPropertyStore;
 import property.VertexTemporalPropertyWriteBatch;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 
 // In fact, in Neo4j function api, entities are act as executor,
@@ -40,9 +44,12 @@ public class TransactionImpl implements Transaction {
     private final EdgeTemporalPropertyWriteBatch edgeWb;
     private final LogWriteBatch logWb;
 
-    // Transaction object keeps track of all its time point temporal property locks.
-    private final HashSet<TimePointTemporalPropertyID> sharedLockSet = new HashSet<>();
-    private final HashSet<TimePointTemporalPropertyID> exclusiveLockSet = new HashSet<>();
+    // Transaction object keeps track of all its temporal property locks.
+    private final HashSet<TemporalPropertyID> sharedLockSet = new HashSet<>();
+    private final HashSet<TemporalPropertyID> exclusiveLockSet = new HashSet<>();
+
+    // entity executor context
+    private final EntityExecutorContext exeCtx;
 
     public TransactionImpl(long txnID, org.neo4j.graphdb.Transaction graphTxn, VertexTemporalPropertyStore vertex, EdgeTemporalPropertyStore edge, TransactionManager txnManager) {
         this.txnID = txnID;
@@ -57,17 +64,19 @@ public class TransactionImpl implements Transaction {
         this.vertexWb = vertex.startBatchWrite();
         this.edgeWb = edge.startBatchWrite();
         this.logWb = this.txnManager.getLogStore().startBatchWrite();
+
+        exeCtx = new EntityExecutorContext(txnID, this.txnManager.getLockManager(), this.logWb);
     }
 
     public LogWriteBatch getLogWb() {
         return logWb;
     }
 
-    public HashSet<TimePointTemporalPropertyID> getSharedLockSet() {
+    public HashSet<TemporalPropertyID> getSharedLockSet() {
         return sharedLockSet;
     }
 
-    public HashSet<TimePointTemporalPropertyID> getExclusiveLockSet() {
+    public HashSet<TemporalPropertyID> getExclusiveLockSet() {
         return exclusiveLockSet;
     }
 
@@ -79,11 +88,11 @@ public class TransactionImpl implements Transaction {
         this.state = state;
     }
 
-    boolean holdSLock(TimePointTemporalPropertyID tp) {
+    boolean holdSLock(TemporalPropertyID tp) {
         return sharedLockSet.contains(tp);
     }
 
-    boolean holdXLock(TimePointTemporalPropertyID tp) {
+    boolean holdXLock(TemporalPropertyID tp) {
         return exclusiveLockSet.contains(tp);
     }
 
@@ -106,81 +115,148 @@ public class TransactionImpl implements Transaction {
 
     @Override
     public Node createNode() {
-        return null;
+        org.neo4j.graphdb.Node neoNode = graphTxn.createNode();
+        return new Vertex(neoNode, exeCtx);
     }
 
     @Override
     public Node createNode(Label... labels) {
-        return null;
+        org.neo4j.graphdb.Node neoNode = graphTxn.createNode(labels);
+        return new Vertex(neoNode, exeCtx);
     }
 
     @Override
     public Node getNodeById(long id) {
-        return null;
+        org.neo4j.graphdb.Node neoNode = graphTxn.getNodeById(id);
+        return new Vertex(neoNode, exeCtx);
     }
 
     @Override
     public Relationship getRelationshipById(long id) {
-        return null;
+        org.neo4j.graphdb.Relationship neoRel = graphTxn.getRelationshipById(id);
+        return new Edge(neoRel, exeCtx);
     }
 
     @Override
     public Iterable<Label> getAllLabelsInUse() {
-        return null;
+        return graphTxn.getAllLabelsInUse();
     }
 
     @Override
     public Iterable<RelationshipType> getAllRelationshipTypesInUse() {
-        return null;
+        return graphTxn.getAllRelationshipTypesInUse();
     }
 
     @Override
     public Iterable<Label> getAllLabels() {
-        return null;
+        return graphTxn.getAllLabels();
     }
 
     @Override
     public Iterable<RelationshipType> getAllRelationshipTypes() {
-        return null;
+        return graphTxn.getAllRelationshipTypes();
     }
 
     @Override
     public Iterable<String> getAllPropertyKeys() {
-        return null;
+        var p = graphTxn.getAllPropertyKeys();
+        List<String> ret = new ArrayList<>();
+        for (var k : p) {
+            if (k.startsWith(TGraphConfig.TEMPORAL_PROPERTY_PREFIX)) {
+                ret.add(k.substring(TGraphConfig.TEMPORAL_PROPERTY_PREFIX.length()));
+            } else {
+                ret.add(k);
+            }
+        }
+        return ret;
     }
+
+    //private ResourceIterator<Node> resourceIteratorWrapper(ResourceIterator<org.neo4j.graphdb.Relationship> neoNodes) {
+    //    return new ResourceIterator<>() {
+    //        @Override
+    //        public void close() {
+    //            neoNodes.close();
+    //        }
+
+    //        @Override
+    //        public boolean hasNext() {
+    //            return neoNodes.hasNext();
+    //        }
+
+    //        @Override
+    //        public Node next() {
+    //            var neoNode = neoNodes.next();
+    //            return new Vertex(neoNode, exeCtx);
+    //        }
+    //    };
+    //}
+
+    //private ResourceIterator<Edge> resourceIteratorWrapper(ResourceIterator<org.neo4j.graphdb.Relationship> neoRels) {
+    //    return new ResourceIterator<>() {
+    //        @Override
+    //        public void close() {
+    //            neoRels.close();
+    //        }
+
+    //        @Override
+    //        public boolean hasNext() {
+    //            return neoRels.hasNext();
+    //        }
+
+    //        @Override
+    //        public Edge next() {
+    //            var neoRel = neoRels.next();
+    //            return new Edge(neoRel, exeCtx);
+    //        }
+    //    };
+    //}
+
 
     @Override
     public ResourceIterator<Node> findNodes(Label label, String key, String template, StringSearchMode searchMode) {
+        var neoNodes = graphTxn.findNodes(label, key, template, searchMode);
+        //return resourceIteratorWrapper(neoNodes);
         return null;
     }
 
     @Override
     public ResourceIterator<Node> findNodes(Label label, Map<String, Object> propertyValues) {
+        var neoNodes = graphTxn.findNodes(label, propertyValues);
+        // return resourceIteratorWrapper(neoNodes);
         return null;
     }
 
     @Override
     public ResourceIterator<Node> findNodes(Label label, String key1, Object value1, String key2, Object value2, String key3, Object value3) {
+        // var neoNodes = graphTxn.findNodes(label, key1, value1, key2, value2, key3, value3);
+        // return resourceIteratorWrapper(neoNodes);
         return null;
     }
 
     @Override
     public ResourceIterator<Node> findNodes(Label label, String key1, Object value1, String key2, Object value2) {
+        //var neoNodes = graphTxn.findNodes(label, key1, value1, key2, value2);
+        //return resourceIteratorWrapper(neoNodes);
         return null;
     }
 
     @Override
     public Node findNode(Label label, String key, Object value) {
-        return null;
+        var neoNode = graphTxn.findNode(label, key, value);
+        return new Vertex(neoNode, exeCtx);
     }
 
     @Override
     public ResourceIterator<Node> findNodes(Label label, String key, Object value) {
+        var neoNodes = graphTxn.findNodes(label, key, value);
+        //return resourceIteratorWrapper(neoNodes);
         return null;
     }
 
     @Override
     public ResourceIterator<Node> findNodes(Label label) {
+        var neoNodes = graphTxn.findNodes(label);
+        // return resourceIteratorWrapper(neoNodes);
         return null;
     }
 
@@ -249,8 +325,4 @@ public class TransactionImpl implements Transaction {
 
     }
 
-    @Override
-    public boolean prepare() {
-        return false;
-    }
 }

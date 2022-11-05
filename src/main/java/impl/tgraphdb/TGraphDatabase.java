@@ -13,9 +13,12 @@ import txn.TransactionManager;
 // TGraphDatabase:
 //      Store: hold GraphStore(Neo4j), VertexTemporalPropertyStore, EdgeTemporalPropertyStore
 //      Transaction: TransactionManager
+
+// Note!: You should get TGraphDatabase through DatabaseManager not call Constructor directly.
+
 public class TGraphDatabase implements TGraphDatabaseService {
 
-    private static Log log = LogFactory.getLog(TGraphDatabase.class);
+    private static final Log log = LogFactory.getLog(TGraphDatabase.class);
 
     // graph store
     private final GraphDatabaseService graph;

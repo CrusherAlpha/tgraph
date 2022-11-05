@@ -6,13 +6,14 @@ import common.Pair;
 import property.EdgeTemporalPropertyKey;
 import property.VertexTemporalPropertyKey;
 
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 
 enum LogEntryType {
     VERTEX, EDGE
 }
 
-public class LogEntry {
+public class LogEntry implements Serializable {
     // 0x00 -> vertex
     // 0x01 -> edge
     private final byte type;

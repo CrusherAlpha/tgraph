@@ -5,7 +5,7 @@ import property.VertexTemporalPropertyStore;
 
 import java.util.List;
 
-// for transaction manager failure recovery
+// for transaction manager executes failure recovery
 
 public class LogApplier {
     final VertexTemporalPropertyStore vertex;
@@ -16,15 +16,18 @@ public class LogApplier {
         this.edge = edge;
     }
 
-    public void applyBatch(List<LogEntry> entries) {
+    public void applyBatch(List<LogWriteBatch> entries) {
         try (var vertexWb = vertex.startBatchWrite(); var edgeWb = edge.startBatchWrite()) {
             for (var entry : entries) {
-                if (entry.type() == LogEntryType.VERTEX) {
-                    var pr = entry.toVertex();
-                    vertexWb.put(pr.first(), pr.second());
-                } else {
-                    var pr = entry.toEdge();
-                    edgeWb.put(pr.first(), pr.second());
+                for (var log : entry.getLogs()) {
+                    if (log.type() == LogEntryType.VERTEX) {
+                        var pr = log.toVertex();
+                        vertexWb.put(pr.first(), pr.second());
+                    } else {
+                        var pr = log.toEdge();
+                        edgeWb.put(pr.first(), pr.second());
+                    }
+
                 }
             }
             vertex.commitBatchWrite(vertexWb, false, true, true);

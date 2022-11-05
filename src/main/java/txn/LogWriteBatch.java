@@ -1,11 +1,10 @@
 package txn;
 
-import common.Codec;
-
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class LogWriteBatch {
+public class LogWriteBatch implements Serializable {
 
     private final List<LogEntry> logs;
 
@@ -18,8 +17,12 @@ public class LogWriteBatch {
         logs.add(entry);
     }
 
-    public byte[] toBytes() {
-        return Codec.encodeValue(logs);
+    public List<LogEntry> getLogs() {
+        return logs;
+    }
+
+    public int size() {
+        return logs.size();
     }
 
 }

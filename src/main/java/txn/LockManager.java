@@ -2,8 +2,6 @@ package txn;
 
 import impl.tgraphdb.TGraphConfig;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import common.Pair;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -52,10 +50,6 @@ class LockRequestQueue {
     public boolean upgrading = false;
 }
 
-// For avoiding concurrent delete entity/entity temporal property and access entity temporal property time point value,
-// we should acquire S-Lock first on Neo4j Entity for temporal property access,
-// and acquire X-Lock first on Neo4j Entity for entity/entity tp delete.
-// leave this operation to entity.
 public class LockManager implements AutoCloseable {
 
     private static final Log log = LogFactory.getLog(LockManager.class);
@@ -64,8 +58,8 @@ public class LockManager implements AutoCloseable {
     private final ConcurrentHashMap<Long, TransactionImpl> txnMap;
 
     private final ReentrantLock mu = new ReentrantLock();
-    // entity identifier + property name ->  the list of <timestamp, lock request queue>
-    private final HashMap<TemporalPropertyID, ArrayList<Pair<Long, LockRequestQueue>>> lockTable = new HashMap<>(); // guarded by mu
+    // entity identifier + property name ->  lock request queue
+    private final HashMap<TemporalPropertyID, LockRequestQueue> lockTable = new HashMap<>(); // guarded by mu.
 
     // for deadlock detection
     private final static int SHUTDOWN_TIME = 2;
@@ -121,7 +115,7 @@ public class LockManager implements AutoCloseable {
         return false;
     }
 
-    // Note!: require external synchronization
+    // NOTE!: require external synchronization
     // pick a victim random.
     private Optional<Long> pickVictim() {
         HashMap<Long, Boolean> visited = new HashMap<>();
@@ -133,29 +127,26 @@ public class LockManager implements AutoCloseable {
         return Optional.empty();
     }
 
-    // Note!: require external synchronization
+    // NOTE!: require external synchronization
     private void buildWaitForGraph() {
         for (var lockTableEntry : lockTable.entrySet()) {
-            var timeList = lockTableEntry.getValue();
-            for (var pr : timeList) {
-                List<Long> hold = new ArrayList<>();
-                List<Long> wait = new ArrayList<>();
-                var que = pr.second();
-                for (var req : que.requestQueue) {
-                    var txn = txnMap.get(req.txnID);
-                    if (txn == null || txn.getState() == TransactionState.ABORTED) {
-                        continue;
-                    }
-                    if (req.granted) {
-                        hold.add(req.txnID);
-                    } else {
-                        wait.add(req.txnID);
-                    }
+            var lq = lockTableEntry.getValue();
+            List<Long> hold = new ArrayList<>();
+            List<Long> wait = new ArrayList<>();
+            for (var lr : lq.requestQueue) {
+                var txn = txnMap.get(lr.txnID);
+                if (txn == null || txn.getState() == TransactionState.ABORTED) {
+                    continue;
                 }
-                for (var w : wait) {
-                    for (var h : hold) {
-                        addEdge(w, h);
-                    }
+                if (lr.granted) {
+                    hold.add(lr.txnID);
+                } else {
+                    wait.add(lr.txnID);
+                }
+            }
+            for (var w : wait) {
+                for (var h : hold) {
+                    addEdge(w, h);
                 }
             }
         }
@@ -181,22 +172,12 @@ public class LockManager implements AutoCloseable {
                 txn.setState(TransactionState.ABORTED);
 
                 // notify the transactions waiting for me
-                HashSet<TimePointTemporalPropertyID> lockSet = new HashSet<>(txn.getSharedLockSet());
+                HashSet<TemporalPropertyID> lockSet = new HashSet<>(txn.getSharedLockSet());
                 lockSet.addAll(txn.getExclusiveLockSet());
-                for (var entry : lockSet) {
-                    var l = lockTable.get(entry.getTp());
-                    if (l != null) {
-                        Pair<Long, LockRequestQueue> p = null;
-                        // linear search here is ok, but can be optimized through binary search.
-                        for (var pr : l) {
-                            if (entry.getTimestamp() == pr.first()) {
-                                p = pr;
-                                break;
-                            }
-                        }
-                        if (p != null) {
-                            p.second().cv.notifyAll();
-                        }
+                for (var tpID : lockSet) {
+                    var lq = lockTable.get(tpID);
+                    if (lq != null) {
+                        lq.cv.notifyAll();
                     }
                 }
             }
@@ -206,64 +187,16 @@ public class LockManager implements AutoCloseable {
         }
     }
 
-
-    // Note!: require external synchronization.
-    private Pair<Long, LockRequestQueue> getLockPair(TemporalPropertyID id, long timestamp) {
-        var l = lockTable.get(id);
-        if (l == null) {
-            l = new ArrayList<>();
-            LockRequestQueue que = new LockRequestQueue();
-            l.add(Pair.of(timestamp, que));
-            lockTable.put(id, l);
-            return Pair.of(timestamp, que);
+    // NOTE!: require external synchronization.
+    private LockRequestQueue getOrCreateLockRequestQueue(TemporalPropertyID tp) {
+        var lq = lockTable.get(tp);
+        if (lq == null) {
+            lq = new LockRequestQueue();
+            lockTable.put(tp, lq);
+            return lq;
         }
-        Long retT;
-        LockRequestQueue retQ;
-        Preconditions.checkNotNull(l);
-        Pair<Long, LockRequestQueue> key = Pair.of(timestamp, null);
-        var com = new Comparator<Pair<Long, LockRequestQueue>>() {
-            @Override
-            public int compare(Pair<Long, LockRequestQueue> o1, Pair<Long, LockRequestQueue> o2) {
-                if (Objects.equals(o1.first(), o2.first())) {
-                    return 0;
-                }
-                return o1.first() < o2.first() ? -1 : 1;
-            }
-        };
-        // find the max one which <= the given key through binary search.
-        // maybe there is a std lib, but I did not get the best practice.
-        // for example, 1, 3, 5 is in list now,
-        // user wants to read value in timestamp 4, so the 3 is expected,
-        // we should add lock on 3.
-        int low = 0;
-        int high = l.size() - 1;
-        while (low <= high) {
-            int mid = (low + high) >>> 1;
-            var midVal = l.get(mid);
-            int c = com.compare(midVal, key);
-            if (c == 0) {
-                high = mid;
-                break;
-            } else if (c < 0) {
-                low = mid + 1;
-            } else {
-                high = mid - 1;
-            }
-        }
-        // high may be -1, means all element in list is greater than key
-        Pair<Long, LockRequestQueue> pr;
-        if (high == -1) {
-            pr = Pair.of(timestamp, new LockRequestQueue());
-            l.add(0, pr);
-            retT = timestamp;
-        } else {
-            pr = l.get(high);
-            retT = pr.first();
-        }
-        retQ = pr.second();
-        return Pair.of(retT, retQ);
+        return lq;
     }
-
 
     private void waitForLockCompatibleOrDeadLock(LockRequestQueue que, LockRequest lr, TransactionImpl txn) {
         while (!isLockCompatible(que, lr) && txn.getState() != TransactionState.ABORTED) {
@@ -275,35 +208,31 @@ public class LockManager implements AutoCloseable {
         }
     }
 
-    private boolean doAcquire(TransactionImpl txn, TemporalPropertyID tp, long timestamp, LockMode mode) throws TransactionAbortException {
+    private boolean doAcquire(TransactionImpl txn, TemporalPropertyID tp, LockMode mode) throws TransactionAbortException {
 
-        var tpT = TimePointTemporalPropertyID.of(tp, timestamp);
         if (mode == LockMode.SHARED) {
-            if (txn.holdSLock(tpT) || txn.holdXLock(tpT)) {
+            if (txn.holdSLock(tp) || txn.holdXLock(tp)) {
                 return true;
             }
         } else {
-            if (txn.holdXLock(tpT)) {
+            if (txn.holdXLock(tp)) {
                 return true;
             }
             // leave lock upgrade to upper layer.
-            Preconditions.checkState(!txn.holdSLock(tpT));
+            Preconditions.checkState(!txn.holdSLock(tp));
         }
         mu.lock();
-        var pr = getLockPair(tp, timestamp);
+        var lq = getOrCreateLockRequestQueue(tp);
         mu.unlock();
-        var t = pr.first();
-        var que = pr.second();
-        tpT = TimePointTemporalPropertyID.of(tp, t);
 
         LockRequest lr = new LockRequest(txn.getTxnID(), mode);
 
         try {
-            que.mu.lock();
+            lq.mu.lock();
 
-            que.requestQueue.add(lr);
+            lq.requestQueue.add(lr);
 
-            waitForLockCompatibleOrDeadLock(que, lr, txn);
+            waitForLockCompatibleOrDeadLock(lq, lr, txn);
 
             // deadlock occurs
             if (txn.getState() == TransactionState.ABORTED) {
@@ -314,46 +243,43 @@ public class LockManager implements AutoCloseable {
             // acquire Lock successfully
             lr.granted = true;
             if (mode == LockMode.SHARED) {
-                txn.getSharedLockSet().add(tpT);
+                txn.getSharedLockSet().add(tp);
             } else {
-                txn.getExclusiveLockSet().add(tpT);
+                txn.getExclusiveLockSet().add(tp);
             }
 
             return true;
 
         } finally {
-            que.mu.unlock();
+            lq.mu.unlock();
         }
     }
 
-    private boolean doUpgrade(TransactionImpl txn, TemporalPropertyID tp, long timestamp) throws TransactionAbortException {
+    private boolean doUpgrade(TransactionImpl txn, TemporalPropertyID tp) throws TransactionAbortException {
         mu.lock();
-        var pr = getLockPair(tp, timestamp);
+        var lq = getOrCreateLockRequestQueue(tp);
         mu.unlock();
-        var t = pr.first();
-        var que = pr.second();
-        var tpT = TimePointTemporalPropertyID.of(tp, t);
         try {
-            que.mu.lock();
-            if (que.upgrading) {
+            lq.mu.lock();
+            if (lq.upgrading) {
                 abortInternal(txn, AbortReason.UPGRADE_CONFLICT);
                 return false;
             }
-            que.upgrading = true;
-            var ind = que.requestQueue.indexOf(new LockRequest(txn.getTxnID(), LockMode.SHARED));
+            lq.upgrading = true;
+            var ind = lq.requestQueue.indexOf(new LockRequest(txn.getTxnID(), LockMode.SHARED));
             Preconditions.checkState(ind != -1, "do not hold any lock when upgrading.");
-            var lr = que.requestQueue.get(ind);
+            var lr = lq.requestQueue.get(ind);
             Preconditions.checkState(lr.granted, "lock request has not be granted");
             Preconditions.checkState(lr.lockMode == LockMode.SHARED, "lock request should be S-lock");
 
-            Preconditions.checkState(txn.holdSLock(tpT), "txn should hold S-lock.");
-            Preconditions.checkState(!txn.holdXLock(tpT), "txn should not hold X-lock.");
+            Preconditions.checkState(txn.holdSLock(tp), "txn should hold S-lock.");
+            Preconditions.checkState(!txn.holdXLock(tp), "txn should not hold X-lock.");
 
             lr.granted = false;
             lr.lockMode = LockMode.EXCLUSIVE;
 
             // wait for lock compatible or deadlock
-            waitForLockCompatibleOrDeadLock(que, lr, txn);
+            waitForLockCompatibleOrDeadLock(lq, lr, txn);
 
             // deadlock occurs
             if (txn.getState() == TransactionState.ABORTED) {
@@ -363,105 +289,91 @@ public class LockManager implements AutoCloseable {
 
             // acquire X-Lock successfully
             lr.granted = true;
-            txn.getSharedLockSet().remove(tpT);
-            txn.getExclusiveLockSet().add(tpT);
-            que.upgrading = false;
+            txn.getSharedLockSet().remove(tp);
+            txn.getExclusiveLockSet().add(tp);
+            lq.upgrading = false;
             return true;
 
         } finally {
-            que.mu.unlock();
+            lq.mu.unlock();
         }
     }
 
-    public boolean acquireShared(TransactionImpl txn, long vertexID, String propertyName, long timestamp) throws TransactionAbortException {
+    public boolean acquireShared(TransactionImpl txn, long vertexID, String propertyName) throws TransactionAbortException {
         var tp = TemporalPropertyID.vertex(vertexID, propertyName);
-        return doAcquire(txn, tp, timestamp, LockMode.SHARED);
+        return doAcquire(txn, tp, LockMode.SHARED);
     }
 
-    public boolean acquireShared(TransactionImpl txn, long startID, long endID, String propertyName, long timestamp) throws TransactionAbortException {
+    public boolean acquireShared(TransactionImpl txn, long startID, long endID, String propertyName) throws TransactionAbortException {
         var tp = TemporalPropertyID.edge(startID, endID, propertyName);
-        return doAcquire(txn, tp, timestamp, LockMode.SHARED);
+        return doAcquire(txn, tp, LockMode.SHARED);
     }
 
-    public boolean acquireExclusive(TransactionImpl txn, long vertexID, String propertyName, long timestamp) throws TransactionAbortException {
+    public boolean acquireExclusive(TransactionImpl txn, long vertexID, String propertyName) throws TransactionAbortException {
         var tp = TemporalPropertyID.vertex(vertexID, propertyName);
-        return doAcquire(txn, tp, timestamp, LockMode.EXCLUSIVE);
+        return doAcquire(txn, tp, LockMode.EXCLUSIVE);
     }
 
     public boolean acquireExclusive(TransactionImpl txn, long startID, long endID, String propertyName, long timestamp) throws TransactionAbortException {
         var tp = TemporalPropertyID.edge(startID, endID, propertyName);
-        return doAcquire(txn, tp, timestamp, LockMode.EXCLUSIVE);
+        return doAcquire(txn, tp, LockMode.EXCLUSIVE);
     }
 
     // for S-Lock -> X-Lock
-    public boolean upgrade(TransactionImpl txn, long vertexID, String propertyName, long timestamp) throws TransactionAbortException {
+    public boolean upgrade(TransactionImpl txn, long vertexID, String propertyName) throws TransactionAbortException {
         var tp = TemporalPropertyID.vertex(vertexID, propertyName);
-        return doUpgrade(txn, tp, timestamp);
+        return doUnlock(txn, tp);
     }
 
     // for S-Lock -> X-Lock
-    public boolean upgrade(TransactionImpl txn, long startID, long endID, String propertyName, long timestamp) throws TransactionAbortException {
+    public boolean upgrade(TransactionImpl txn, long startID, long endID, String propertyName) throws TransactionAbortException {
         var tp = TemporalPropertyID.edge(startID, endID, propertyName);
-        return doUpgrade(txn, tp, timestamp);
+        return doUnlock(txn, tp);
     }
 
-    // Note!: require external
+    // NOTE!: require external
     // guarded by mu, invoked by transaction manager.
-    private boolean doUnlock(TransactionImpl txn, TemporalPropertyID tp, long timestamp) {
+    private boolean doUnlock(TransactionImpl txn, TemporalPropertyID tp) {
         Preconditions.checkState(txn.getState() == TransactionState.COMMITTED, "SS2PL requires unlock occurs in commit moment");
 
-        var pr = getLockPair(tp, timestamp);
-        var t = pr.first();
-        var que = pr.second();
-
-        var tpT = TimePointTemporalPropertyID.of(tp, t);
+        var lq = getOrCreateLockRequestQueue(tp);
 
         try {
-            que.mu.lock();
-            var ind = que.requestQueue.indexOf(new LockRequest(txn.getTxnID(), null));
+            lq.mu.lock();
+            var ind = lq.requestQueue.indexOf(new LockRequest(txn.getTxnID(), null));
             Preconditions.checkState(ind != -1, "do not hold any lock when unlock.");
 
-
             // remove myself and notify all waiting transactions
-            que.requestQueue.remove(ind);
-            if (!que.requestQueue.isEmpty()) {
-                que.cv.notifyAll();
+            lq.requestQueue.remove(ind);
+            if (!lq.requestQueue.isEmpty()) {
+                lq.cv.notifyAll();
             }
 
-            txn.getSharedLockSet().remove(tpT);
-            txn.getExclusiveLockSet().remove(tpT);
+            txn.getSharedLockSet().remove(tp);
+            txn.getExclusiveLockSet().remove(tp);
 
             // garbage collection
-            // if no waiting transactions, this tp in this time point should be gc to avoid OOM.
-            if (que.requestQueue.isEmpty()) {
-                var l = lockTable.get(tp);
-                Preconditions.checkNotNull(l);
-                l.removeIf(new Predicate<Pair<Long, LockRequestQueue>>() {
-                    @Override
-                    public boolean apply(Pair<Long, LockRequestQueue> longLockRequestQueuePair) {
-                        return Objects.equals(longLockRequestQueuePair.first(), pr.first());
-                    }
-                });
-                if (l.isEmpty()) {
-                    lockTable.remove(tp);
-                }
+            // if no waiting transactions, this tp should be gc to avoid OOM.
+            if (lq.requestQueue.isEmpty()) {
+                lockTable.remove(tp);
             }
             return true;
 
         } finally {
-            que.mu.unlock();
+            lq.mu.unlock();
         }
     }
 
-    public boolean unlock(TransactionImpl txn, long vertexID, String propertyName, long timestamp) throws TransactionAbortException {
+    public boolean unlock(TransactionImpl txn, long vertexID, String propertyName) throws TransactionAbortException {
         var tp = TemporalPropertyID.vertex(vertexID, propertyName);
-        return doUnlock(txn, tp, timestamp);
+        return doUnlock(txn, tp);
     }
 
-    public boolean unlock(TransactionImpl txn, long startID, long endID, String propertyName, long timestamp) throws TransactionAbortException {
+    public boolean unlock(TransactionImpl txn, long startID, long endID, String propertyName) throws TransactionAbortException {
         var tp = TemporalPropertyID.edge(startID, endID, propertyName);
-        return doUnlock(txn, tp, timestamp);
+        return doUnlock(txn, tp);
     }
+
 
     // return true iff:
     // 1. que is empty

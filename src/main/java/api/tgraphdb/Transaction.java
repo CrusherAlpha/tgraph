@@ -516,12 +516,4 @@ public interface Transaction extends AutoCloseable {
     @Override
     void close();
 
-    // 2pc extension
-    /**
-     * @return true if ready to commit or false if not ready.
-     *
-     * If return true, transaction should guarantee to be able to commit in any circumstances
-     * unless users send rollback command.
-     */
-    boolean prepare();
 }
