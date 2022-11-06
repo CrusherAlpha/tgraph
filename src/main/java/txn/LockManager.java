@@ -39,6 +39,15 @@ class LockRequest {
     public int hashCode() {
         return Objects.hash(txnID);
     }
+
+    @Override
+    public String toString() {
+        return "LockRequest{" +
+                "txnID=" + txnID +
+                ", lockMode=" + lockMode +
+                ", granted=" + granted +
+                '}';
+    }
 }
 
 class LockRequestQueue {
@@ -50,6 +59,8 @@ class LockRequestQueue {
     public boolean upgrading = false;
 }
 
+// NOTE!: acquire lock may cause TransactionAbortException,
+// caller is in charge of the release lock.
 public class LockManager implements AutoCloseable {
 
     private static final Log log = LogFactory.getLog(LockManager.class);
@@ -57,7 +68,7 @@ public class LockManager implements AutoCloseable {
     // hold running transaction map reference passed by TransactionManager.
     private final ConcurrentHashMap<Long, TransactionImpl> txnMap;
 
-    private final ReentrantLock mu = new ReentrantLock();
+    public final ReentrantLock mu = new ReentrantLock();
     // entity identifier + property name ->  lock request queue
     private final HashMap<TemporalPropertyID, LockRequestQueue> lockTable = new HashMap<>(); // guarded by mu.
 
@@ -68,47 +79,41 @@ public class LockManager implements AutoCloseable {
 
     public LockManager(ConcurrentHashMap<Long, TransactionImpl> txnMap) {
         this.txnMap = txnMap;
-        deadlockExe.scheduleAtFixedRate(this::runCycleDetection, TGraphConfig.DEADLOCK_DETECT_INTERNAL, TGraphConfig.DEADLOCK_DETECT_INTERNAL, TimeUnit.SECONDS);
+        deadlockExe.scheduleAtFixedRate(this::runCycleDetection, TGraphConfig.DEADLOCK_DETECT_INTERVAL, TGraphConfig.DEADLOCK_DETECT_INTERVAL, TimeUnit.SECONDS);
     }
 
-    private static void doAddEdge(long from, long to, HashMap<Long, List<Long>> graph) {
-        var l = graph.computeIfAbsent(from, k -> new ArrayList<>());
-        var ind = Collections.binarySearch(l, to);
-        // already in
-        if (ind >= 0) {
-            return;
+    // NOTE!: this api is exposed only for LockManager ut, you should not disable deadlock detection.
+    public LockManager(ConcurrentHashMap<Long, TransactionImpl> txnMap, boolean enableDeadlockDetection) {
+        log.info("NOTE!: you create a lock manager using a test only api.");
+        this.txnMap = txnMap;
+        if (enableDeadlockDetection) {
+            deadlockExe.scheduleAtFixedRate(this::runCycleDetection, TGraphConfig.DEADLOCK_DETECT_INTERVAL, TGraphConfig.DEADLOCK_DETECT_INTERVAL, TimeUnit.SECONDS);
         }
-        l.add(-(ind + 1), to);
-    }
-
-    private static void doRemoveEdge(long from, long to, HashMap<Long, List<Long>> graph) {
-        var l = graph.get(from);
-        if (l != null) {
-            var ind = Collections.binarySearch(l, to);
-            if (ind >= 0) {
-                l.remove(ind);
-            }
-        }
-
     }
 
     private void addEdge(long from, long to) {
-        // from -> to
-        doAddEdge(from, to, waitFor);
+        // add from node if absent
+        var fromEdges = waitFor.computeIfAbsent(from, k -> new ArrayList<>());
+        // add to node if absent
+        waitFor.computeIfAbsent(to, k -> new ArrayList<>());
+        if (fromEdges.contains(to)) {
+            return;
+        }
+        fromEdges.add(to);
     }
 
-    private void removeEdge(long from, long to) {
-        // from -> to
-        doRemoveEdge(from, to, waitFor);
-    }
-
-    private boolean dfs(long cur, HashMap<Long, Boolean> visited) {
+    private boolean dfs(long cur, HashMap<Long, Boolean> visited, HashMap<Long, Boolean> mem) {
+        if (mem.containsKey(cur)) {
+            return false;
+        }
         if (visited.containsKey(cur)) {
             return true;
         }
         visited.put(cur, true);
-        for (var to : waitFor.get(cur)) {
-            if (dfs(to, visited)) {
+        var ends = waitFor.get(cur);
+        Preconditions.checkNotNull(ends);
+        for (var to : ends) {
+            if (dfs(to, visited, mem)) {
                 return true;
             }
         }
@@ -119,20 +124,28 @@ public class LockManager implements AutoCloseable {
     // pick a victim random.
     private Optional<Long> pickVictim() {
         HashMap<Long, Boolean> visited = new HashMap<>();
-        for (var txn : waitFor.keySet()) {
-            if (dfs(txn, visited)) {
+        HashMap<Long, Boolean> mem = new HashMap<>();
+        var txns = waitFor.keySet();
+        for (var txn : txns) {
+            visited.clear();
+            if (dfs(txn, visited, mem)) {
                 return Optional.of(txn);
             }
+            mem.put(txn, true);
         }
         return Optional.empty();
     }
 
     // NOTE!: require external synchronization
     private void buildWaitForGraph() {
+        waitFor.clear();
+        List<Long> hold = new ArrayList<>();
+        List<Long> wait = new ArrayList<>();
         for (var lockTableEntry : lockTable.entrySet()) {
             var lq = lockTableEntry.getValue();
-            List<Long> hold = new ArrayList<>();
-            List<Long> wait = new ArrayList<>();
+            hold.clear();
+            wait.clear();
+            lq.mu.lock();
             for (var lr : lq.requestQueue) {
                 var txn = txnMap.get(lr.txnID);
                 if (txn == null || txn.getState() == TransactionState.ABORTED) {
@@ -144,6 +157,7 @@ public class LockManager implements AutoCloseable {
                     wait.add(lr.txnID);
                 }
             }
+            lq.mu.unlock();
             for (var w : wait) {
                 for (var h : hold) {
                     addEdge(w, h);
@@ -156,18 +170,17 @@ public class LockManager implements AutoCloseable {
     private void runCycleDetection() {
         try {
             mu.lock();
-            waitFor.clear();
+            log.info("starting deadlock detection.");
             buildWaitForGraph();
             // pick victims until no cycle
+            boolean deadlock = false;
             for (var victim = pickVictim(); victim != null && victim.isPresent(); victim = pickVictim()) {
-
-                // remove edge in graph
-                for (var to : waitFor.get(victim.get())) {
-                    removeEdge(victim.get(), to);
-                }
+                long victimTxnID = victim.get();
+                deadlock = true;
+                log.info(String.format("deadlock occurs, victim txn id: %d.", victimTxnID));
 
                 // abort the victim
-                var txn = txnMap.get(victim.get());
+                var txn = txnMap.get(victimTxnID);
                 Preconditions.checkNotNull(txn);
                 txn.setState(TransactionState.ABORTED);
 
@@ -177,11 +190,22 @@ public class LockManager implements AutoCloseable {
                 for (var tpID : lockSet) {
                     var lq = lockTable.get(tpID);
                     if (lq != null) {
-                        lq.cv.notifyAll();
+                        try {
+                            lq.mu.lock();
+                            lq.cv.signalAll();
+                        } finally {
+                            lq.mu.unlock();
+                        }
                     }
                 }
+                // re-build wait for graph.
+                buildWaitForGraph();
             }
-
+            if (!deadlock) {
+                log.info("no deadlock occurs.");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         } finally {
             mu.unlock();
         }
@@ -230,12 +254,14 @@ public class LockManager implements AutoCloseable {
         try {
             lq.mu.lock();
 
+            // add lr(un-granted) to lq.
             lq.requestQueue.add(lr);
-
             waitForLockCompatibleOrDeadLock(lq, lr, txn);
 
-            // deadlock occurs
+            // deadlock occurs.
             if (txn.getState() == TransactionState.ABORTED) {
+                // remove lr(un-granted) from lq.
+                lq.requestQueue.remove(lr);
                 abortInternal(txn, AbortReason.DEADLOCK);
                 return false;
             }
@@ -283,6 +309,8 @@ public class LockManager implements AutoCloseable {
 
             // deadlock occurs
             if (txn.getState() == TransactionState.ABORTED) {
+                txn.getSharedLockSet().remove(tp);
+                lq.requestQueue.remove(lr);
                 abortInternal(txn, AbortReason.DEADLOCK);
                 return false;
             }
@@ -299,42 +327,22 @@ public class LockManager implements AutoCloseable {
         }
     }
 
-    public boolean acquireShared(TransactionImpl txn, long vertexID, String propertyName) throws TransactionAbortException {
-        var tp = TemporalPropertyID.vertex(vertexID, propertyName);
+    public boolean acquireShared(TransactionImpl txn, TemporalPropertyID tp) throws TransactionAbortException {
         return doAcquire(txn, tp, LockMode.SHARED);
     }
 
-    public boolean acquireShared(TransactionImpl txn, long startID, long endID, String propertyName) throws TransactionAbortException {
-        var tp = TemporalPropertyID.edge(startID, endID, propertyName);
-        return doAcquire(txn, tp, LockMode.SHARED);
-    }
-
-    public boolean acquireExclusive(TransactionImpl txn, long vertexID, String propertyName) throws TransactionAbortException {
-        var tp = TemporalPropertyID.vertex(vertexID, propertyName);
-        return doAcquire(txn, tp, LockMode.EXCLUSIVE);
-    }
-
-    public boolean acquireExclusive(TransactionImpl txn, long startID, long endID, String propertyName, long timestamp) throws TransactionAbortException {
-        var tp = TemporalPropertyID.edge(startID, endID, propertyName);
+    public boolean acquireExclusive(TransactionImpl txn, TemporalPropertyID tp) throws TransactionAbortException {
         return doAcquire(txn, tp, LockMode.EXCLUSIVE);
     }
 
     // for S-Lock -> X-Lock
-    public boolean upgrade(TransactionImpl txn, long vertexID, String propertyName) throws TransactionAbortException {
-        var tp = TemporalPropertyID.vertex(vertexID, propertyName);
-        return doUnlock(txn, tp);
+    public boolean upgrade(TransactionImpl txn, TemporalPropertyID tp) throws TransactionAbortException {
+        return doUpgrade(txn, tp);
     }
 
-    // for S-Lock -> X-Lock
-    public boolean upgrade(TransactionImpl txn, long startID, long endID, String propertyName) throws TransactionAbortException {
-        var tp = TemporalPropertyID.edge(startID, endID, propertyName);
-        return doUnlock(txn, tp);
-    }
-
-    // NOTE!: require external
-    // guarded by mu, invoked by transaction manager.
+    // NOTE!: require external synchronization.
     private boolean doUnlock(TransactionImpl txn, TemporalPropertyID tp) {
-        Preconditions.checkState(txn.getState() == TransactionState.COMMITTED, "SS2PL requires unlock occurs in commit moment");
+        Preconditions.checkState(txn.getState() == TransactionState.COMMITTED, "SS2PL requires unlock occurs in commit phase");
 
         var lq = getOrCreateLockRequestQueue(tp);
 
@@ -346,7 +354,7 @@ public class LockManager implements AutoCloseable {
             // remove myself and notify all waiting transactions
             lq.requestQueue.remove(ind);
             if (!lq.requestQueue.isEmpty()) {
-                lq.cv.notifyAll();
+                lq.cv.signalAll();
             }
 
             txn.getSharedLockSet().remove(tp);
@@ -364,40 +372,34 @@ public class LockManager implements AutoCloseable {
         }
     }
 
-    public boolean unlock(TransactionImpl txn, long vertexID, String propertyName) throws TransactionAbortException {
-        var tp = TemporalPropertyID.vertex(vertexID, propertyName);
-        return doUnlock(txn, tp);
-    }
-
-    public boolean unlock(TransactionImpl txn, long startID, long endID, String propertyName) throws TransactionAbortException {
-        var tp = TemporalPropertyID.edge(startID, endID, propertyName);
+    // NOTE!: require external synchronization.
+    // guarded by mu, invoked by upper layer.
+    public boolean unlock(TransactionImpl txn, TemporalPropertyID tp) throws TransactionAbortException {
         return doUnlock(txn, tp);
     }
 
 
     // return true iff:
     // 1. que is empty
-    // 2. compatible with all locks that are currently held
-    // 3. does not exist any un-granted lock quest
-    private static boolean isLockCompatible(LockRequestQueue que, LockRequest req) {
+    // 2. compatible with all locks that are currently held by active txns.
+    private boolean isLockCompatible(LockRequestQueue que, LockRequest req) {
         Preconditions.checkNotNull(que);
         Preconditions.checkNotNull(req);
         for (var r : que.requestQueue) {
-            // already apply for lock
-            if (r.txnID == req.txnID) {
-                return true;
-            }
-            // only test the compatibility with locks are currently held
-            var compatible = r.granted &&
-                    (r.lockMode != LockMode.EXCLUSIVE && req.lockMode != LockMode.EXCLUSIVE);
-            if (!compatible) {
-                return false;
+            var txn = txnMap.get(r.txnID);
+            Preconditions.checkState(txn != null);
+            if (r.granted && txn.getState() == TransactionState.ACTIVE) {
+                Preconditions.checkState(r.txnID != req.txnID);
+                var compatible = (r.lockMode != LockMode.EXCLUSIVE && req.lockMode != LockMode.EXCLUSIVE);
+                if (!compatible) {
+                    return false;
+                }
             }
         }
         return true;
     }
 
-    // throws abort exception to upper layer to let upper layer to release all locks
+    // throws abort exception to upper layer and let upper layer release all locks.
     private static void abortInternal(TransactionImpl txn, AbortReason reason) throws TransactionAbortException {
         txn.setState(TransactionState.ABORTED);
         throw new TransactionAbortException(txn.getTxnID(), reason);

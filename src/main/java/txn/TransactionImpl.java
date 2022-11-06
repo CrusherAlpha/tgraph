@@ -6,6 +6,8 @@ import impl.tgraphdb.Edge;
 import impl.tgraphdb.TGraphConfig;
 import api.tgraphdb.Transaction;
 import impl.tgraphdb.Vertex;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.neo4j.graphdb.*;
 import property.EdgeTemporalPropertyStore;
 import property.EdgeTemporalPropertyWriteBatch;
@@ -24,6 +26,8 @@ import java.util.Map;
 // txn must be hold in one and only one thread.
 
 public class TransactionImpl implements Transaction {
+
+    private static final Log log = LogFactory.getLog(TransactionImpl.class);
 
     // info
     private final long txnID;
@@ -66,6 +70,24 @@ public class TransactionImpl implements Transaction {
         this.logWb = this.txnManager.getLogStore().startBatchWrite();
 
         exeCtx = new EntityExecutorContext(txnID, this.txnManager.getLockManager(), this.logWb);
+    }
+
+    // NOTE!: this api is exposed only for LockManager ut.
+    // NOTE!: Don't use it.
+    // TODO(crusher): It's ugly here, we can abstract some interface to avoid it.
+    public TransactionImpl(long txnID) {
+        log.info("NOTE!: you create a transaction using a test only api.");
+        this.txnID = txnID;
+        this.state = TransactionState.ACTIVE;
+
+        this.graphTxn = null;
+        this.vertex = null;
+        this.edge = null;
+        this.txnManager = null;
+        this.vertexWb = null;
+        this.edgeWb = null;
+        this.logWb = null;
+        exeCtx = null;
     }
 
     public LogWriteBatch getLogWb() {

@@ -3,7 +3,7 @@ package impl.tgraphdb;
 // Config TGraph runtime config.
 public class TGraphConfig {
     // time unit: seconds
-    public static int DEADLOCK_DETECT_INTERNAL = 30;
+    public static int DEADLOCK_DETECT_INTERVAL = 20;
 
     public static int BACKGROUND_THREAD_POOL_THREAD_NUMBER = 6;
 

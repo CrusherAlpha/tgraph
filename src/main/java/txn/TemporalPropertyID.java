@@ -10,7 +10,7 @@ public class TemporalPropertyID {
     private final long endNodeId;
     private final String propertyName;
 
-    public TemporalPropertyID(long startNodeId, long endNodeId, String propertyName) {
+    private TemporalPropertyID(long startNodeId, long endNodeId, String propertyName) {
         this.startNodeId = startNodeId;
         this.endNodeId = endNodeId;
         this.propertyName = propertyName;
@@ -48,5 +48,14 @@ public class TemporalPropertyID {
     @Override
     public int hashCode() {
         return Objects.hash(startNodeId, endNodeId, propertyName);
+    }
+
+    @Override
+    public String toString() {
+        return "TemporalPropertyID{" +
+                "startNodeId=" + startNodeId +
+                ", endNodeId=" + endNodeId +
+                ", propertyName='" + propertyName + '\'' +
+                '}';
     }
 }
