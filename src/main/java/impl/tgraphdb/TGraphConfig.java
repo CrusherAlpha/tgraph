@@ -21,4 +21,5 @@ public class TGraphConfig {
 
     // temporal property
     public static String TEMPORAL_PROPERTY_PREFIX = "t_";
+    public static byte TEMPORAL_PROPERTY_VALUE_PLACEHOLDER = (byte) 0xff;
 }

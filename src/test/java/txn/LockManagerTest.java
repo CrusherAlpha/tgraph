@@ -35,8 +35,6 @@ public class LockManagerTest {
         try {
             lm.mu.lock();
             assertTrue(lm.unlock(txn, tp));
-        } catch (TransactionAbortException e) {
-            e.printStackTrace();
         } finally {
             lm.mu.unlock();
         }
@@ -49,8 +47,6 @@ public class LockManagerTest {
             for (var tp : tps) {
                 assertTrue(lm.unlock(txn, tp));
             }
-        } catch (TransactionAbortException e) {
-            e.printStackTrace();
         } finally {
             lm.mu.unlock();
         }

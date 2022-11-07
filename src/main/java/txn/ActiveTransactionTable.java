@@ -50,4 +50,8 @@ public class ActiveTransactionTable {
         }
         return ret;
     }
+
+    public void stop() {
+        db.stop();
+    }
 }

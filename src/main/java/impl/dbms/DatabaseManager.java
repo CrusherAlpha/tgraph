@@ -25,8 +25,8 @@ public class DatabaseManager implements DatabaseManagementService {
     private final String metaPath;
     private final String tGraphPath;
 
-    private HashMap<String, TGraphDatabaseService> openedTG = new HashMap<>();
-    private HashMap<String, org.neo4j.dbms.api.DatabaseManagementService> opendNeo4jDBMS = new HashMap<>();
+    private final HashMap<String, TGraphDatabaseService> openedTG = new HashMap<>();
+    private final HashMap<String, org.neo4j.dbms.api.DatabaseManagementService> openedNeo4jDBMS = new HashMap<>();
 
     public DatabaseManager(String databaseDirectory) {
         this.metaPath = databaseDirectory + "/meta";
@@ -45,7 +45,7 @@ public class DatabaseManager implements DatabaseManagementService {
         if (id == null) {
             throw new DatabaseNotFoundException();
         }
-        var dbms = opendNeo4jDBMS.get(databaseName);
+        var dbms = openedNeo4jDBMS.get(databaseName);
         Preconditions.checkNotNull(dbms);
         return new TGraphDatabase(new GraphSpaceID(id, databaseName, tGraphPath + "/" + databaseName), dbms.database(DEFAULT_DATABASE_NAME));
     }
@@ -60,7 +60,7 @@ public class DatabaseManager implements DatabaseManagementService {
             throw new DatabaseExistsException();
         }
         var dbms = new DatabaseManagementServiceBuilder(Path.of(tGraphPath + "/" + databaseName)).build();
-        opendNeo4jDBMS.put(databaseName, dbms);
+        openedNeo4jDBMS.put(databaseName, dbms);
         var tg = new TGraphDatabase(new GraphSpaceID(1, databaseName, tGraphPath + "/" + databaseName), dbms.database(DEFAULT_DATABASE_NAME));
         openedTG.put(databaseName, tg);
         metaDB.put(databaseName, 1);
@@ -76,10 +76,10 @@ public class DatabaseManager implements DatabaseManagementService {
             tg.shutdown();
             openedTG.remove(databaseName);
         }
-        if (opendNeo4jDBMS.containsKey(databaseName)) {
-            var dbms = opendNeo4jDBMS.get(databaseName);
+        if (openedNeo4jDBMS.containsKey(databaseName)) {
+            var dbms = openedNeo4jDBMS.get(databaseName);
             dbms.shutdown();
-            opendNeo4jDBMS.remove(databaseName);
+            openedNeo4jDBMS.remove(databaseName);
         }
         metaDB.delete(databaseName);
     }
@@ -88,7 +88,7 @@ public class DatabaseManager implements DatabaseManagementService {
     public void startDatabase(String databaseName) throws DatabaseNotFoundException {
         if (openedTG.containsKey(databaseName)) {
             // already start, just return
-            Preconditions.checkState(opendNeo4jDBMS.containsKey(databaseName));
+            Preconditions.checkState(openedNeo4jDBMS.containsKey(databaseName));
             return;
         }
         var id = metaDB.get(databaseName);
@@ -96,7 +96,7 @@ public class DatabaseManager implements DatabaseManagementService {
             throw new DatabaseNotFoundException();
         }
         var dbms = new DatabaseManagementServiceBuilder(Path.of(tGraphPath + "/" + databaseName)).build();
-        opendNeo4jDBMS.put(databaseName, dbms);
+        openedNeo4jDBMS.put(databaseName, dbms);
         var tg = new TGraphDatabase(new GraphSpaceID(id, databaseName, tGraphPath + "/" + databaseName), dbms.database(DEFAULT_DATABASE_NAME));
         openedTG.put(databaseName, tg);
     }
@@ -108,14 +108,14 @@ public class DatabaseManager implements DatabaseManagementService {
         }
         if (!openedTG.containsKey(databaseName)) {
             // already shutdown, just return
-            Preconditions.checkState(!opendNeo4jDBMS.containsKey(databaseName));
+            Preconditions.checkState(!openedNeo4jDBMS.containsKey(databaseName));
             return;
         }
-        var dbms = opendNeo4jDBMS.get(databaseName);
+        var dbms = openedNeo4jDBMS.get(databaseName);
         var tg = openedTG.get(databaseName);
         tg.shutdown();
         dbms.shutdown();
-        opendNeo4jDBMS.remove(databaseName);
+        openedNeo4jDBMS.remove(databaseName);
         openedTG.remove(databaseName);
     }
 
@@ -135,9 +135,9 @@ public class DatabaseManager implements DatabaseManagementService {
             entry.shutdown();
         }
         openedTG.clear();
-        for (var entry : opendNeo4jDBMS.values()) {
+        for (var entry : openedNeo4jDBMS.values()) {
             entry.shutdown();
         }
-        opendNeo4jDBMS.clear();
+        openedNeo4jDBMS.clear();
     }
 }

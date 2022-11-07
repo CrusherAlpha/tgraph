@@ -154,6 +154,11 @@ public class RocksEngine implements KVEngine {
 
     @Override
     public List<byte[]> multiGet(List<byte[]> keys) {
+        if (keys.isEmpty()) {
+            // just return an empty list.
+            log.info("you passed a empty key list to RocksEngine.multiGet");
+            return new ArrayList<>();
+        }
         try (ReadOptions readOptions = new ReadOptions()) {
             return db.multiGetAsList(readOptions, keys);
         } catch (RocksDBException e) {

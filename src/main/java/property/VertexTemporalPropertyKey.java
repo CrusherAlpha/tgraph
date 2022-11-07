@@ -23,6 +23,10 @@ public class VertexTemporalPropertyKey {
         this.timestamp = timestamp;
     }
 
+    public static VertexTemporalPropertyKey of(long nodeId, String propertyName, long timestamp) {
+        return new VertexTemporalPropertyKey(nodeId, propertyName, timestamp);
+    }
+
     public VertexTemporalPropertyKey(VertexTemporalPropertyKeyPrefix prefix, long timestamp) {
         this(prefix.getNodeId(), prefix.getPropertyName(), timestamp);
     }

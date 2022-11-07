@@ -15,15 +15,15 @@ public class TransactionAbortException extends Exception {
         this.abortReason = abortReason;
     }
 
-    long getTxnID() {
+    public long getTxnID() {
         return txnID;
     }
 
-    AbortReason getAbortReason() {
+    public AbortReason getAbortReason() {
         return abortReason;
     }
 
-    String getInfo() {
+    public String getInfo() {
         switch (abortReason) {
             case UPGRADE_CONFLICT: {
                 return String.format("Transaction %d aborted because another transaction is already waiting to upgrade its lock\n", txnID);

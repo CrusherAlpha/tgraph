@@ -4,6 +4,7 @@ import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.NotFoundException;
 import org.neo4j.graphdb.RelationshipType;
+import txn.TransactionAbortException;
 
 /**
  * A node in the graph with properties and relationships to other entities.
@@ -48,7 +49,7 @@ public interface Node extends Entity {
      * Invoking any methods on this node after <code>delete()</code> has
      * returned is invalid and will lead to {@link NotFoundException} being thrown.
      */
-    void delete();
+    void delete() throws TransactionAbortException;
 
     /**
      * Returns all the relationships attached to this node. If no relationships

@@ -13,7 +13,7 @@ public class LogWriteBatch implements Serializable {
     }
 
 
-    void append(LogEntry entry) {
+    public void append(LogEntry entry) {
         logs.add(entry);
     }
 
@@ -25,4 +25,10 @@ public class LogWriteBatch implements Serializable {
         return logs.size();
     }
 
+    @Override
+    public String toString() {
+        return "LogWriteBatch{" +
+                "logs=" + logs +
+                '}';
+    }
 }

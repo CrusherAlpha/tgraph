@@ -8,7 +8,7 @@ import java.util.Map;
  * A programmatically handled transaction.
  * All database operations that access the temporal graph,  must be performed in a transaction.
  * If you attempt to access the graph outside a transaction, those operations will throw NotInTransactionException.
- * Here's the idiomatic use of programmatic transactions in Neo4j:
+ * Here's the idiomatic use of programmatic transactions in TGraph:
  * <p>
  * try (Transaction txn = tgraphDb.beginTx())
  * {

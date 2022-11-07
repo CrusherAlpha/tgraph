@@ -193,4 +193,30 @@ public class VertexTemporalPropertyStoreTest {
         }
 
     }
+
+    @Test
+    void testRemoveAll() {
+        GraphSpaceID graph0 = new GraphSpaceID(1, "test-graph-remove-all", "");
+        String baseDir = "/Users/crusher/test/";
+        String dataDir = graph0.getGraphName();
+        VertexTemporalPropertyStore vertex = new VertexTemporalPropertyStore(graph0, baseDir + dataDir, false);
+        String v = "v";
+        // put [0, 20)
+        try (var batch = vertex.startBatchWrite()) {
+            for (long t = 0; t < 20; ++t) {
+                batch.put(new VertexTemporalPropertyKey(1, "crusher", t), v + t);
+            }
+            assertTrue(vertex.commitBatchWrite(batch, false, true, true));
+        }
+
+        assertEquals("v10", vertex.get(new VertexTemporalPropertyKey(1, "crusher", 10)));
+
+        try (var batch = vertex.startBatchWrite()) {
+            batch.removePrefix(VertexTemporalPropertyKeyPrefix.of(1, "crusher"));
+            assertTrue(vertex.commitBatchWrite(batch, false, true, true));
+        }
+
+        assertNull(vertex.get(new VertexTemporalPropertyKey(1, "crusher", 10)));
+
+    }
 }

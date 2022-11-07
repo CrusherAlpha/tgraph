@@ -17,6 +17,10 @@ public class VertexTemporalPropertyKeyPrefix {
         this.propertyLength = propertyName.getBytes(Charset.defaultCharset()).length;
     }
 
+    public static VertexTemporalPropertyKeyPrefix of(long nodeId, String propertyName) {
+        return new VertexTemporalPropertyKeyPrefix(nodeId, propertyName);
+    }
+
     public static VertexTemporalPropertyKeyPrefix fromBytes(byte[] bytes) {
         Preconditions.checkState(bytes.length > 12);
         // node id

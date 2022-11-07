@@ -31,11 +31,13 @@ public class TGraphDatabase implements TGraphDatabaseService {
     public TGraphDatabase(GraphSpaceID graphSpaceID, GraphDatabaseService graph) {
         // graph identifier.
         this.graph = graph;
-        VertexTemporalPropertyStore vertex = new VertexTemporalPropertyStore(graphSpaceID, graphSpaceID.getDatabasePath() + "/vertex", false);
-        EdgeTemporalPropertyStore edge = new EdgeTemporalPropertyStore(graphSpaceID, graphSpaceID.getDatabasePath() + "/edge", false);
+        VertexTemporalPropertyStore vertex = new VertexTemporalPropertyStore(graphSpaceID, graphSpaceID.getDatabasePath() + "/vertex-tp", false);
+        EdgeTemporalPropertyStore edge = new EdgeTemporalPropertyStore(graphSpaceID, graphSpaceID.getDatabasePath() + "/edge-tp", false);
         this.txnManager = new TransactionManager(graphSpaceID, graph, vertex, edge);
         // start recovery
         this.txnManager.recover();
+        // after recovery, start txn manager background task and purge task
+        this.txnManager.start();
     }
 
     @Override

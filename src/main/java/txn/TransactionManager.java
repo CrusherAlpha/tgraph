@@ -1,6 +1,7 @@
 package txn;
 
 
+import com.google.common.base.Preconditions;
 import impl.tgraphdb.TGraphConfig;
 import impl.tgraphdb.GraphSpaceID;
 import org.apache.commons.logging.Log;
@@ -38,15 +39,7 @@ public class TransactionManager implements AutoCloseable {
     private final ActiveTransactionTable activeTxnTable;
 
     // background task executor
-    // Note!: you should custom your own thread pool instead of use Executors
-    ThreadPoolExecutor backgroundTaskExecutor = new ThreadPoolExecutor(TGraphConfig.BACKGROUND_THREAD_POOL_THREAD_NUMBER,
-            TGraphConfig.BACKGROUND_THREAD_POOL_THREAD_NUMBER, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<>(TGraphConfig.MAX_CONCURRENT_TRANSACTION_NUMS),
-            (r, executor) -> {
-                log.info("Too many concurrent transactions, apply this task in current thread.");
-                if (!executor.isShutdown()) {
-                    r.run();
-                }
-            });
+    ThreadPoolExecutor backgroundTaskExecutor = null;
 
     // purge
     final BlockingQueue<Long> purgeTransactions = new ArrayBlockingQueue<>(TGraphConfig.PURGE_BATCH_SIZE);
@@ -61,8 +54,21 @@ public class TransactionManager implements AutoCloseable {
 
         this.txnMap = new ConcurrentHashMap<>();
         this.lockManager = new LockManager(this.txnMap);
-        this.logStore = new LogStore(graph, graph.getDatabasePath() + "/log");
+        this.logStore = new LogStore(graph, graph.getDatabasePath() + "/tp-redo-logs");
         this.activeTxnTable = new ActiveTransactionTable(graph, graph.getDatabasePath() + "/active-txn-table");
+    }
+
+    // start background task executor and purge task executor.
+    public void start() {
+        // Note!: you should custom your own thread pool instead of use Executors
+        backgroundTaskExecutor = new ThreadPoolExecutor(TGraphConfig.BACKGROUND_THREAD_POOL_THREAD_NUMBER,
+                TGraphConfig.BACKGROUND_THREAD_POOL_THREAD_NUMBER, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<>(TGraphConfig.MAX_CONCURRENT_TRANSACTION_NUMS),
+                (r, executor) -> {
+                    log.info("Too many concurrent transactions, apply this task in current thread.");
+                    if (!executor.isShutdown()) {
+                        r.run();
+                    }
+                });
         // background thread pool
         backgroundTaskExecutor.prestartAllCoreThreads();
         // purge thread
@@ -77,6 +83,10 @@ public class TransactionManager implements AutoCloseable {
         return logStore;
     }
 
+    public TransactionImpl getTransaction(long txnID) {
+        return txnMap.get(txnID);
+    }
+
     public TransactionImpl beginTransaction() {
         long txnID = nextTxnID.getAndIncrement();
         var txn = new TransactionImpl(txnID, neo.beginTx(), vertex, edge, this);
@@ -88,45 +98,78 @@ public class TransactionManager implements AutoCloseable {
     }
 
     public void abortTransaction(TransactionImpl transaction) {
+        if (transaction.getState() != TransactionState.ACTIVE) {
+            return;
+        }
         transaction.setState(TransactionState.ABORTED);
-        long txnID = transaction.getTxnID();
-        // stop tracking this running transaction
-        txnMap.remove(txnID);
+        Preconditions.checkNotNull(backgroundTaskExecutor, "you should start TransactionManager first.");
+        // async for performance without safety sacrifice.
+        backgroundTaskExecutor.submit(() -> asyncAbortTask(transaction));
+    }
+
+    private void asyncAbortTask(TransactionImpl txn) {
         // remove the active state in active table
-        activeTxnTable.delete(txnID);
+        activeTxnTable.delete(txn.getTxnID());
+        // release all locks.
+        releaseLocks(txn);
+        // stop tracking this running transaction
+        txnMap.remove(txn.getTxnID());
     }
 
     // step 2 is the commit point.
     public void commitTransaction(TransactionImpl transaction) {
+        if (transaction.getState() != TransactionState.ACTIVE) {
+            return;
+        }
         transaction.setState(TransactionState.COMMITTED);
         var txnID = transaction.getTxnID();
         // 1. write redo log
         logStore.commitBatchWrite(txnID, transaction.getLogWb());
-        // 2. write commit log && write topology store atomically through neo4j transaction
+        // 2. write commit log
         transaction.writeCommitLog();
-        transaction.commit();
-        transaction.close();
+        Preconditions.checkNotNull(backgroundTaskExecutor, "you should start TransactionManager first.");
         // async for performance without safety sacrifice.
         backgroundTaskExecutor.submit(() -> asyncCommitTask(transaction));
     }
+
 
     private void asyncCommitTask(TransactionImpl txn) {
         // 3. write temporal property store
         vertex.commitBatchWrite(txn.getVertexWb(), false, true, true);
         edge.commitBatchWrite(txn.getEdgeWb(), false, true, true);
         // 4. release lock
-        releaseLock(txn);
+        releaseLocks(txn);
         try {
             purgeTransactions.put(txn.getTxnID());
         } catch (InterruptedException e) {
             log.info("Async commit task failed.");
             e.printStackTrace();
         }
+        // 5. stop tracking this running transaction
+        txnMap.remove(txn.getTxnID());
     }
 
 
-    private void releaseLock(TransactionImpl transaction) {
-        // TODO(crusher): impl it.
+    private void releaseLocks(TransactionImpl transaction) {
+        try {
+            lockManager.mu.lock();
+            for (var s : transaction.getSharedLockSet()) {
+                lockManager.unlock(transaction, s);
+            }
+            for (var x : transaction.getSharedLockSet()) {
+                lockManager.unlock(transaction, x);
+            }
+
+        } finally {
+            lockManager.mu.unlock();
+        }
+    }
+
+    // used by EntityExecutor(Vertex, Edge) release locks when internal error(deadlock etc.) occur.
+    public void releaseLocks(long txnID) {
+        var txn = txnMap.get(txnID);
+        Preconditions.checkNotNull(txn);
+        releaseLocks(txn);
     }
 
     private void purgeCommitLog(List<Long> txnIDs) {
@@ -190,12 +233,14 @@ public class TransactionManager implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
-        // close background thread pool, purge thread, lock manager
-        backgroundTaskExecutor.shutdown();
-        if (!backgroundTaskExecutor.awaitTermination(SHUTDOWN_TIME, TimeUnit.SECONDS)) {
-            log.info(String.format("Background thread pool did not terminate in %d second(s).", SHUTDOWN_TIME));
-            backgroundTaskExecutor.shutdownNow();
+    public void close() throws InterruptedException {
+        if (backgroundTaskExecutor != null) {
+            // close background thread pool, purge thread, lock manager
+            backgroundTaskExecutor.shutdown();
+            if (!backgroundTaskExecutor.awaitTermination(SHUTDOWN_TIME, TimeUnit.SECONDS)) {
+                log.info(String.format("Background thread pool did not terminate in %d second(s).", SHUTDOWN_TIME));
+                backgroundTaskExecutor.shutdownNow();
+            }
         }
         purgeThread.shutdown();
         if (!purgeThread.awaitTermination(SHUTDOWN_TIME, TimeUnit.SECONDS)) {
@@ -203,5 +248,8 @@ public class TransactionManager implements AutoCloseable {
             purgeThread.shutdownNow();
         }
         lockManager.close();
+        logStore.stop();
+        activeTxnTable.stop();
+        txnMap.clear();
     }
 }

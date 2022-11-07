@@ -7,6 +7,7 @@ import java.util.Map;
 import java.sql.Timestamp;
 
 import org.neo4j.graphdb.NotFoundException;
+import txn.TransactionAbortException;
 
 /**
  * An Entity is persisted in the database, and identified by an id.
@@ -148,6 +149,7 @@ public interface Entity {
     // user only need to pass {temporal property key}.
     // we store {key, value} pair in Neo4j as a placeholder to build the connection
     // between topology storage and temporal property storage.
+    // NOTE!: timestamp precision is millisecond.
 
     /**
      * Create a temporal property.
@@ -172,8 +174,9 @@ public interface Entity {
      * @param timestamp the timestamp
      * @return the property value associated with timestamp
      * @throws TemporalPropertyNotExistsException if property not exist
+     * @throws TransactionAbortException if internal errors(deadlock etc.) occur
      */
-    Object getTemporalPropertyValue(String key, Timestamp timestamp);
+    Object getTemporalPropertyValue(String key, Timestamp timestamp) throws TransactionAbortException;
 
     /**
      * Returns specified existing temporal property values in time range [start, end).
@@ -182,10 +185,11 @@ public interface Entity {
      * @param start the start timestamp
      * @param end   the end timestamp
      * @return a list of property values associated with timestamp
-     * @throws IllegalArgumentException           if <code>start</code> is bigger than <code>end</code>
+     * @throws IllegalArgumentException           if <code>start</code> is bigger than or equal to <code>end</code>
      * @throws TemporalPropertyNotExistsException if property not exists
+     * @throws TransactionAbortException if internal errors(deadlock etc.) occur
      */
-    List<Pair<Timestamp, Object>> getTemporalPropertyValue(String key, Timestamp start, Timestamp end);
+    List<Pair<Timestamp, Object>> getTemporalPropertyValue(String key, Timestamp start, Timestamp end) throws TransactionAbortException;
 
     /**
      * Sets the property value for the given key associated with timestamp
@@ -200,8 +204,9 @@ public interface Entity {
      * @throws IllegalArgumentException           if <code>value</code> is of an
      *                                            unsupported type (including <code>null</code>)
      * @throws TemporalPropertyNotExistsException if property not exists
+     * @throws TransactionAbortException if internal errors(deadlock etc.) occur
      */
-    void setTemporalPropertyValue(String key, Timestamp timestamp, Object value);
+    void setTemporalPropertyValue(String key, Timestamp timestamp, Object value) throws TransactionAbortException;
 
     /**
      * Sets the property value for the given key between [start, end)
@@ -214,30 +219,30 @@ public interface Entity {
      * @param start the start timestamp of the temporal property
      * @param end   the end timestamp of the temporal property
      * @param value the property value, of one of the valid property types
-     * @throws IllegalArgumentException           if <code>value</code> is of an
-     *                                            unsupported type (including <code>null</code>)
-     *                                            or <code>start</code> is bigger than <code>end</code>.
+     * @throws IllegalArgumentException           if <code>start</code> is bigger than or equal to <code>end</code>
      * @throws TemporalPropertyNotExistsException if property not exists
+     * @throws TransactionAbortException if internal errors(deadlock etc.) occur
      */
-    void setTemporalPropertyValue(String key, Timestamp start, Timestamp end, Object value);
+    void setTemporalPropertyValue(String key, Timestamp start, Timestamp end, Object value) throws TransactionAbortException;
 
     /**
      * Removes all the property values and this temporal property.
      *
      * @param key the property key
      * @throws TemporalPropertyNotExistsException if property not exists
+     * @throws TransactionAbortException if internal errors(deadlock etc.) occur
      */
-    void removeTemporalProperty(String key);
+    void removeTemporalProperty(String key) throws TransactionAbortException;
 
     /**
      * Removes the property value associated with timestamp.
      *
      * @param key       the property key
      * @param timestamp the timestamp of this temporal property
-     * @return property value associated with timestamp or null if value is not exist in this timestamp.
      * @throws TemporalPropertyNotExistsException if property not exists.
+     * @throws TransactionAbortException if internal errors(deadlock etc.) occur
      */
-    Object removeTemporalPropertyValue(String key, Timestamp timestamp);
+    void removeTemporalPropertyValue(String key, Timestamp timestamp) throws TransactionAbortException;
 
     /**
      * Removes the property value between [start, end).
@@ -245,20 +250,20 @@ public interface Entity {
      * @param key   the property key
      * @param start the start timestamp of this temporal property
      * @param end   the end timestamp of this temporal property
-     * @return a list of property values(or null if value is not exist in that timestamp) between [start, end)
      * @throws TemporalPropertyNotExistsException if property not exists.
-     * @throws IllegalArgumentException           if <code>start</code> is bigger than <code>end</code>
+     * @throws IllegalArgumentException           if <code>start</code> is bigger than or equal to <code>end</code>
+     * @throws TransactionAbortException if internal errors(deadlock etc.) occur
      */
-    List<Pair<Timestamp, Object>> removeTemporalPropertyValue(String key, Timestamp start, Timestamp end);
+    void removeTemporalPropertyValue(String key, Timestamp start, Timestamp end) throws TransactionAbortException;
 
     /**
      * Removes all the property value but not delete the property.
      *
      * @param key the property key
-     * @return a list of all property values
      * @throws TemporalPropertyNotExistsException if property not exists.
+     * @throws TransactionAbortException if internal errors(deadlock etc.) occur
      */
-    List<Pair<Timestamp, Object>> removeTemporalPropertyValue(String key);
+    void removeTemporalPropertyValue(String key) throws TransactionAbortException;
 
     /**
      * Returns all existing temporal properties.

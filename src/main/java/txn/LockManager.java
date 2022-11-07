@@ -59,8 +59,7 @@ class LockRequestQueue {
     public boolean upgrading = false;
 }
 
-// NOTE!: acquire lock may cause TransactionAbortException,
-// caller is in charge of the release lock.
+// NOTE!: acquire lock may cause TransactionAbortException, caller is in charge of releasing all locks.
 public class LockManager implements AutoCloseable {
 
     private static final Log log = LogFactory.getLog(LockManager.class);
@@ -342,7 +341,9 @@ public class LockManager implements AutoCloseable {
 
     // NOTE!: require external synchronization.
     private boolean doUnlock(TransactionImpl txn, TemporalPropertyID tp) {
-        Preconditions.checkState(txn.getState() == TransactionState.COMMITTED, "SS2PL requires unlock occurs in commit phase");
+        var txnState = txn.getState();
+        Preconditions.checkState(txnState == TransactionState.COMMITTED || txnState == TransactionState.ABORTED,
+                "SS2PL requires unlock occurs in final phase");
 
         var lq = getOrCreateLockRequestQueue(tp);
 
@@ -374,7 +375,7 @@ public class LockManager implements AutoCloseable {
 
     // NOTE!: require external synchronization.
     // guarded by mu, invoked by upper layer.
-    public boolean unlock(TransactionImpl txn, TemporalPropertyID tp) throws TransactionAbortException {
+    public boolean unlock(TransactionImpl txn, TemporalPropertyID tp) {
         return doUnlock(txn, tp);
     }
 
@@ -406,7 +407,7 @@ public class LockManager implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() throws InterruptedException {
         deadlockExe.shutdown();
         if (!deadlockExe.awaitTermination(SHUTDOWN_TIME, TimeUnit.SECONDS)) {
             log.info(String.format("Deadlock detector did not terminate in %d second(s).", SHUTDOWN_TIME));

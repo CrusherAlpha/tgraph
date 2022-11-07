@@ -27,6 +27,10 @@ public class EdgeTemporalPropertyKey {
         this(prefix.getStartNodeId(), prefix.getEndNodeId(), prefix.getPropertyName(), timestamp);
     }
 
+    public static EdgeTemporalPropertyKey of(long startNodeId, long endNodeId, String propertyName, long timestamp) {
+        return new EdgeTemporalPropertyKey(startNodeId, endNodeId, propertyName, timestamp);
+    }
+
     public static EdgeTemporalPropertyKey fromBytes(byte[] bytes) {
         Preconditions.checkState(bytes.length > 28);
         var prefix = EdgeTemporalPropertyKeyPrefix.fromBytes(bytes);

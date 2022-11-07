@@ -9,7 +9,7 @@
     <version>1.0-SNAPSHOT</version>
 
     <dependencies>
-        <!-- TGraph is based on neo4j community 4.4.12, Don't change it unless you can guarantee the compatibility. -->
+        <!-- TGraph is based on neo4j community 4.4, Don't change it unless you can guarantee the compatibility. -->
         <dependency>
             <groupId>org.neo4j</groupId>
             <artifactId>neo4j</artifactId>
@@ -26,7 +26,6 @@
         <!-- https://stackoverflow.com/questions/14011467/java-serialization-alternative-with-better-performance -->
         <!-- We choose FST based on this two links. -->
         <!-- FST is easy to use and fast, space friendly enough, and we don't need cross-platform. -->
-        <!-- We use Java 11 for sake of Neo4j community 4.x, thus we choose the 2.x version. -->
         <!-- We use Java 11 for sake of Neo4j community 4.x, thus we choose the 2.x version. -->
         <!-- Don't change it unless you can guarantee the compatibility. -->
         <dependency>

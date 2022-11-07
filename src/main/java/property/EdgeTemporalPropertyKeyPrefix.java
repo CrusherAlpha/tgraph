@@ -19,6 +19,10 @@ public class EdgeTemporalPropertyKeyPrefix {
         this.propertyLength = propertyName.getBytes(Charset.defaultCharset()).length;
     }
 
+    public static EdgeTemporalPropertyKeyPrefix of(long startNodeId, long endNodeId, String propertyName) {
+        return new EdgeTemporalPropertyKeyPrefix(startNodeId, endNodeId, propertyName);
+    }
+
     public static EdgeTemporalPropertyKeyPrefix fromBytes(byte[] bytes) {
         Preconditions.checkState(bytes.length > 20);
         // sid

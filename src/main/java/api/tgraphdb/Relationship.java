@@ -2,6 +2,7 @@ package api.tgraphdb;
 
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.NotFoundException;
+import txn.TransactionAbortException;
 
 /**
  * A relationship between two nodes in the graph. A relationship has a start
@@ -58,7 +59,7 @@ public interface Relationship extends Entity {
      * after <code>delete()</code> has returned is invalid and will lead to
      * NotFoundException being thrown.
      */
-    void delete();
+    void delete() throws TransactionAbortException;
 
     // Node accessors
 

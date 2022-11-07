@@ -19,11 +19,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
+
 // In fact, in Neo4j function api, entities are act as executor,
 // in this way, transaction should pass lock/log manager to entities.
 // In Neo4j, Transaction Class encapsulates too many things, but we
 // have no idea for the compatibility.
-// txn must be hold in one and only one thread.
+
+// NOTE!: Txn must be hold in one and only one thread.
 
 public class TransactionImpl implements Transaction {
 
@@ -36,8 +38,6 @@ public class TransactionImpl implements Transaction {
 
     // store
     private final org.neo4j.graphdb.Transaction graphTxn;
-    private final VertexTemporalPropertyStore vertex;
-    private final EdgeTemporalPropertyStore edge;
 
     // hold txn manager reference to commit or abort txn.
     private final TransactionManager txnManager;
@@ -60,8 +60,6 @@ public class TransactionImpl implements Transaction {
         this.state = TransactionState.ACTIVE;
 
         this.graphTxn = graphTxn;
-        this.vertex = vertex;
-        this.edge = edge;
 
         this.txnManager = txnManager;
 
@@ -69,7 +67,7 @@ public class TransactionImpl implements Transaction {
         this.edgeWb = edge.startBatchWrite();
         this.logWb = this.txnManager.getLogStore().startBatchWrite();
 
-        exeCtx = new EntityExecutorContext(txnID, this.txnManager.getLockManager(), this.logWb);
+        exeCtx = new EntityExecutorContext(txnID, txnManager, graphTxn, this.logWb, this.vertexWb,this.edgeWb, vertex, edge);
     }
 
     // NOTE!: this api is exposed only for LockManager ut.
@@ -81,8 +79,6 @@ public class TransactionImpl implements Transaction {
         this.state = TransactionState.ACTIVE;
 
         this.graphTxn = null;
-        this.vertex = null;
-        this.edge = null;
         this.txnManager = null;
         this.vertexWb = null;
         this.edgeWb = null;
@@ -110,11 +106,11 @@ public class TransactionImpl implements Transaction {
         this.state = state;
     }
 
-    boolean holdSLock(TemporalPropertyID tp) {
+    public boolean holdSLock(TemporalPropertyID tp) {
         return sharedLockSet.contains(tp);
     }
 
-    boolean holdXLock(TemporalPropertyID tp) {
+    public boolean holdXLock(TemporalPropertyID tp) {
         return exclusiveLockSet.contains(tp);
     }
 
@@ -124,7 +120,9 @@ public class TransactionImpl implements Transaction {
     }
 
     public void writeCommitLog() {
-        graphTxn.createNode(Label.label(TGraphConfig.COMMIT_LOG_NODE_LABEL));
+        var node = graphTxn.createNode(Label.label(TGraphConfig.COMMIT_LOG_NODE_LABEL));
+        node.setProperty(TGraphConfig.COMMIT_LOG_TXN_IDENTIFIER, txnID);
+        graphTxn.commit();
     }
 
     public VertexTemporalPropertyWriteBatch getVertexWb() {
@@ -193,73 +191,70 @@ public class TransactionImpl implements Transaction {
         return ret;
     }
 
-    //private ResourceIterator<Node> resourceIteratorWrapper(ResourceIterator<org.neo4j.graphdb.Relationship> neoNodes) {
-    //    return new ResourceIterator<>() {
-    //        @Override
-    //        public void close() {
-    //            neoNodes.close();
-    //        }
 
-    //        @Override
-    //        public boolean hasNext() {
-    //            return neoNodes.hasNext();
-    //        }
+    private ResourceIterator<Node> nodeResourceIteratorWrapper(ResourceIterator<org.neo4j.graphdb.Node> neoNodes) {
+        return new ResourceIterator<>() {
+            @Override
+            public void close() {
+                neoNodes.close();
+            }
 
-    //        @Override
-    //        public Node next() {
-    //            var neoNode = neoNodes.next();
-    //            return new Vertex(neoNode, exeCtx);
-    //        }
-    //    };
-    //}
+            @Override
+            public boolean hasNext() {
+                return neoNodes.hasNext();
+            }
 
-    //private ResourceIterator<Edge> resourceIteratorWrapper(ResourceIterator<org.neo4j.graphdb.Relationship> neoRels) {
-    //    return new ResourceIterator<>() {
-    //        @Override
-    //        public void close() {
-    //            neoRels.close();
-    //        }
+            @Override
+            public Node next() {
+                var neoNode = neoNodes.next();
+                return new Vertex(neoNode, exeCtx);
+            }
+        };
+    }
 
-    //        @Override
-    //        public boolean hasNext() {
-    //            return neoRels.hasNext();
-    //        }
+    private ResourceIterator<Relationship> relationshipResourceIteratorWrapper(ResourceIterator<org.neo4j.graphdb.Relationship> neoRels) {
+        return new ResourceIterator<>() {
+            @Override
+            public void close() {
+                neoRels.close();
+            }
 
-    //        @Override
-    //        public Edge next() {
-    //            var neoRel = neoRels.next();
-    //            return new Edge(neoRel, exeCtx);
-    //        }
-    //    };
-    //}
+            @Override
+            public boolean hasNext() {
+                return neoRels.hasNext();
+            }
+
+            @Override
+            public Edge next() {
+                var neoRel = neoRels.next();
+                return new Edge(neoRel, exeCtx);
+            }
+        };
+    }
 
 
     @Override
     public ResourceIterator<Node> findNodes(Label label, String key, String template, StringSearchMode searchMode) {
         var neoNodes = graphTxn.findNodes(label, key, template, searchMode);
-        //return resourceIteratorWrapper(neoNodes);
-        return null;
+        return nodeResourceIteratorWrapper(neoNodes);
     }
 
     @Override
     public ResourceIterator<Node> findNodes(Label label, Map<String, Object> propertyValues) {
         var neoNodes = graphTxn.findNodes(label, propertyValues);
-        // return resourceIteratorWrapper(neoNodes);
-        return null;
+        return nodeResourceIteratorWrapper(neoNodes);
     }
 
     @Override
     public ResourceIterator<Node> findNodes(Label label, String key1, Object value1, String key2, Object value2, String key3, Object value3) {
-        // var neoNodes = graphTxn.findNodes(label, key1, value1, key2, value2, key3, value3);
-        // return resourceIteratorWrapper(neoNodes);
-        return null;
+        var neoNodes = graphTxn.findNodes(label, key1, value1, key2, value2, key3, value3);
+        return nodeResourceIteratorWrapper(neoNodes);
     }
 
     @Override
     public ResourceIterator<Node> findNodes(Label label, String key1, Object value1, String key2, Object value2) {
-        //var neoNodes = graphTxn.findNodes(label, key1, value1, key2, value2);
-        //return resourceIteratorWrapper(neoNodes);
-        return null;
+        var neoNodes = graphTxn.findNodes(label, key1, value1, key2, value2);
+        return nodeResourceIteratorWrapper(neoNodes);
     }
 
     @Override
@@ -271,65 +266,72 @@ public class TransactionImpl implements Transaction {
     @Override
     public ResourceIterator<Node> findNodes(Label label, String key, Object value) {
         var neoNodes = graphTxn.findNodes(label, key, value);
-        //return resourceIteratorWrapper(neoNodes);
-        return null;
+        return nodeResourceIteratorWrapper(neoNodes);
     }
 
     @Override
     public ResourceIterator<Node> findNodes(Label label) {
         var neoNodes = graphTxn.findNodes(label);
-        // return resourceIteratorWrapper(neoNodes);
-        return null;
+        return nodeResourceIteratorWrapper(neoNodes);
     }
 
     @Override
     public ResourceIterator<Relationship> findRelationships(RelationshipType relationshipType, String key, String template, StringSearchMode searchMode) {
-        return null;
+        var neoRels = graphTxn.findRelationships(relationshipType, key, template, searchMode);
+        return relationshipResourceIteratorWrapper(neoRels);
     }
 
     @Override
     public ResourceIterator<Relationship> findRelationships(RelationshipType relationshipType, Map<String, Object> propertyValues) {
-        return null;
+        var neoRels = graphTxn.findRelationships(relationshipType, propertyValues);
+        return relationshipResourceIteratorWrapper(neoRels);
     }
 
     @Override
     public ResourceIterator<Relationship> findRelationships(RelationshipType relationshipType, String key1, Object value1, String key2, Object value2, String key3, Object value3) {
-        return null;
+        var neoRels = graphTxn.findRelationships(relationshipType, key1, value1, key2, value2, key3, value3);
+        return relationshipResourceIteratorWrapper(neoRels);
     }
 
     @Override
     public ResourceIterator<Relationship> findRelationships(RelationshipType relationshipType, String key1, Object value1, String key2, Object value2) {
-        return null;
+        var neoRels = graphTxn.findRelationships(relationshipType, key1, value1, key2, value2);
+        return relationshipResourceIteratorWrapper(neoRels);
     }
 
     @Override
     public Relationship findRelationship(RelationshipType relationshipType, String key, Object value) {
-        return null;
+        var neoRel = graphTxn.findRelationship(relationshipType, key, value);
+        return new Edge(neoRel, exeCtx);
     }
 
     @Override
     public ResourceIterator<Relationship> findRelationships(RelationshipType relationshipType, String key, Object value) {
-        return null;
+        var neoRels = graphTxn.findRelationships(relationshipType, key, value);
+        return relationshipResourceIteratorWrapper(neoRels);
     }
 
     @Override
     public ResourceIterator<Relationship> findRelationships(RelationshipType relationshipType) {
-        return null;
+        var neoRels = graphTxn.findRelationships(relationshipType);
+        return relationshipResourceIteratorWrapper(neoRels);
     }
 
     @Override
     public void terminate() {
-
+        close();
     }
 
     @Override
     public ResourceIterable<Node> getAllNodes() {
-        return null;
+        var neoNodes = graphTxn.getAllNodes();
+        return () -> nodeResourceIteratorWrapper(neoNodes.iterator());
     }
 
     @Override
     public ResourceIterable<Relationship> getAllRelationships() {
-        return null;
+        var neoRels = graphTxn.getAllRelationships();
+        return () -> relationshipResourceIteratorWrapper(neoRels.iterator());
     }
 
     @Override
@@ -344,7 +346,11 @@ public class TransactionImpl implements Transaction {
 
     @Override
     public void close() {
-
+        // if commit or abort already, do nothing.
+        // or, just rollback this transaction.
+        if (state == TransactionState.ACTIVE) {
+            rollback();
+        }
     }
 
 }
