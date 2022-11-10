@@ -54,4 +54,8 @@ public class ActiveTransactionTable {
     public void stop() {
         db.stop();
     }
+
+    void drop() {
+        db.drop();
+    }
 }

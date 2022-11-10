@@ -5,10 +5,13 @@ import api.tgraphdb.TGraphDatabaseService;
 import com.google.common.base.Preconditions;
 import impl.tgraphdb.GraphSpaceID;
 import impl.tgraphdb.TGraphDatabase;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.neo4j.dbms.api.DatabaseExistsException;
 import org.neo4j.dbms.api.DatabaseManagementServiceBuilder;
 import org.neo4j.dbms.api.DatabaseNotFoundException;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,25 +20,48 @@ import java.util.List;
 import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAME;
 
 // unique globally.
-// Note!: not thread safe.
+// NOTE!: not thread safe.
 public class DatabaseManager implements DatabaseManagementService {
+
+    private static final Log log = LogFactory.getLog(DatabaseManager.class);
 
     private final MetaDB metaDB;
 
-    private final String metaPath;
     private final String tGraphPath;
 
+    // NOTE!: this two maps must be consistent.
+    // started graph will be put into this two maps.
     private final HashMap<String, TGraphDatabaseService> openedTG = new HashMap<>();
     private final HashMap<String, org.neo4j.dbms.api.DatabaseManagementService> openedNeo4jDBMS = new HashMap<>();
 
-    public DatabaseManager(String databaseDirectory) {
-        this.metaPath = databaseDirectory + "/meta";
+    // NOTE!: invariant: openedTG.containsKey(graph) && !shutdownTG.containsKey(graph)
+    private final HashMap<String, TGraphDatabaseService> shutdownTG = new HashMap<>();
+
+
+    private DatabaseManager(String databaseDirectory) {
+        String metaPath = databaseDirectory + "/meta";
         this.tGraphPath = databaseDirectory + "/db";
-        this.metaDB = new MetaDB(this.metaPath);
+        this.metaDB = new MetaDB(metaPath);
+    }
+
+    public static DatabaseManager of(String databaseDirectory) {
+        return new DatabaseManager(databaseDirectory);
+    }
+
+    private TGraphDatabaseService doStartDatabase(String databaseName) {
+        shutdownTG.remove(databaseName);
+        String graphPath = tGraphPath + "/" + databaseName;
+        var dbms = new DatabaseManagementServiceBuilder(Path.of(graphPath)).build();
+        openedNeo4jDBMS.put(databaseName, dbms);
+        var graph = dbms.database(DEFAULT_DATABASE_NAME);
+        var tg = new TGraphDatabase(new GraphSpaceID(1, databaseName, graphPath), graph);
+        openedTG.put(databaseName, tg);
+        return tg;
     }
 
     @Override
     public TGraphDatabaseService database(String databaseName) throws DatabaseNotFoundException {
+        // if started already, just return it
         if(openedTG.containsKey(databaseName)) {
             var ret = openedTG.get(databaseName);
             Preconditions.checkNotNull(ret);
@@ -46,12 +72,15 @@ public class DatabaseManager implements DatabaseManagementService {
             throw new DatabaseNotFoundException();
         }
         var dbms = openedNeo4jDBMS.get(databaseName);
-        Preconditions.checkNotNull(dbms);
-        return new TGraphDatabase(new GraphSpaceID(id, databaseName, tGraphPath + "/" + databaseName), dbms.database(DEFAULT_DATABASE_NAME));
+        Preconditions.checkState(dbms == null);
+
+        // or, start it and return
+        return doStartDatabase(databaseName);
     }
 
     @Override
     public void createDatabase(String databaseName) throws DatabaseExistsException {
+        // if started, graph exists
         if (openedTG.containsKey(databaseName)) {
             throw new DatabaseExistsException();
         }
@@ -59,11 +88,17 @@ public class DatabaseManager implements DatabaseManagementService {
         if (id != null) {
             throw new DatabaseExistsException();
         }
-        var dbms = new DatabaseManagementServiceBuilder(Path.of(tGraphPath + "/" + databaseName)).build();
-        openedNeo4jDBMS.put(databaseName, dbms);
-        var tg = new TGraphDatabase(new GraphSpaceID(1, databaseName, tGraphPath + "/" + databaseName), dbms.database(DEFAULT_DATABASE_NAME));
-        openedTG.put(databaseName, tg);
         metaDB.put(databaseName, 1);
+    }
+
+    private boolean deleteDirectory(File dir) {
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                deleteDirectory(file);
+            }
+        }
+        return dir.delete();
     }
 
     @Override
@@ -71,16 +106,16 @@ public class DatabaseManager implements DatabaseManagementService {
         if (metaDB.get(databaseName) == null) {
             throw new DatabaseNotFoundException();
         }
-        if (openedTG.containsKey(databaseName)) {
-            var tg = openedTG.get(databaseName);
-            tg.shutdown();
-            openedTG.remove(databaseName);
+        if (!shutdownTG.containsKey(databaseName)) {
+            log.error("You should shut down database first.");
+            return;
         }
-        if (openedNeo4jDBMS.containsKey(databaseName)) {
-            var dbms = openedNeo4jDBMS.get(databaseName);
-            dbms.shutdown();
-            openedNeo4jDBMS.remove(databaseName);
-        }
+        var tg = shutdownTG.get(databaseName);
+        tg.drop();
+        String graphPath = tGraphPath + "/" + databaseName;
+        // neo4j does not support delete default graph, we just call the filesystem api to do it.
+        Preconditions.checkState(deleteDirectory(new File(graphPath)));
+        shutdownTG.remove(databaseName);
         metaDB.delete(databaseName);
     }
 
@@ -89,16 +124,14 @@ public class DatabaseManager implements DatabaseManagementService {
         if (openedTG.containsKey(databaseName)) {
             // already start, just return
             Preconditions.checkState(openedNeo4jDBMS.containsKey(databaseName));
+            Preconditions.checkState(!shutdownTG.containsKey(databaseName));
             return;
         }
         var id = metaDB.get(databaseName);
         if (id == null) {
             throw new DatabaseNotFoundException();
         }
-        var dbms = new DatabaseManagementServiceBuilder(Path.of(tGraphPath + "/" + databaseName)).build();
-        openedNeo4jDBMS.put(databaseName, dbms);
-        var tg = new TGraphDatabase(new GraphSpaceID(id, databaseName, tGraphPath + "/" + databaseName), dbms.database(DEFAULT_DATABASE_NAME));
-        openedTG.put(databaseName, tg);
+        doStartDatabase(databaseName);
     }
 
     @Override
@@ -106,9 +139,10 @@ public class DatabaseManager implements DatabaseManagementService {
         if (metaDB.get(databaseName) == null) {
             throw new DatabaseNotFoundException();
         }
-        if (!openedTG.containsKey(databaseName)) {
+        if (shutdownTG.containsKey(databaseName)) {
             // already shutdown, just return
             Preconditions.checkState(!openedNeo4jDBMS.containsKey(databaseName));
+            Preconditions.checkState(!openedTG.containsKey(databaseName));
             return;
         }
         var dbms = openedNeo4jDBMS.get(databaseName);
@@ -117,6 +151,7 @@ public class DatabaseManager implements DatabaseManagementService {
         dbms.shutdown();
         openedNeo4jDBMS.remove(databaseName);
         openedTG.remove(databaseName);
+        shutdownTG.put(databaseName, tg);
     }
 
     @Override
@@ -139,5 +174,6 @@ public class DatabaseManager implements DatabaseManagementService {
             entry.shutdown();
         }
         openedNeo4jDBMS.clear();
+        shutdownTG.clear();
     }
 }

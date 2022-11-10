@@ -101,8 +101,9 @@ public class TransactionManager implements AutoCloseable {
         if (transaction.getState() != TransactionState.ACTIVE) {
             return;
         }
-        transaction.setState(TransactionState.ABORTED);
         Preconditions.checkNotNull(backgroundTaskExecutor, "you should start TransactionManager first.");
+        // set txn aborted.
+        transaction.setState(TransactionState.ABORTED);
         // async for performance without safety sacrifice.
         backgroundTaskExecutor.submit(() -> asyncAbortTask(transaction));
     }
@@ -121,6 +122,7 @@ public class TransactionManager implements AutoCloseable {
         if (transaction.getState() != TransactionState.ACTIVE) {
             return;
         }
+        // 0. set txn committed.
         transaction.setState(TransactionState.COMMITTED);
         var txnID = transaction.getTxnID();
         // 1. write redo log
@@ -152,14 +154,15 @@ public class TransactionManager implements AutoCloseable {
 
     private void releaseLocks(TransactionImpl transaction) {
         try {
+            List<TemporalPropertyID> tps = new ArrayList<>();
+            tps.addAll(transaction.getSharedLockSet());
+            tps.addAll(transaction.getExclusiveLockSet());
             lockManager.mu.lock();
-            for (var s : transaction.getSharedLockSet()) {
-                lockManager.unlock(transaction, s);
+            for (var tp : tps) {
+                lockManager.unlock(transaction, tp);
             }
-            for (var x : transaction.getSharedLockSet()) {
-                lockManager.unlock(transaction, x);
-            }
-
+        } catch (Exception e) {
+            e.printStackTrace();
         } finally {
             lockManager.mu.unlock();
         }
@@ -251,5 +254,10 @@ public class TransactionManager implements AutoCloseable {
         logStore.stop();
         activeTxnTable.stop();
         txnMap.clear();
+    }
+
+    public void drop() {
+        logStore.drop();
+        activeTxnTable.drop();
     }
 }

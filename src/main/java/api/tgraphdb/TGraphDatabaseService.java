@@ -38,4 +38,7 @@ public interface TGraphDatabaseService {
     String databaseName();
 
     void shutdown();
+
+    // for drop database, used by DatabaseManagementService
+    void drop();
 }

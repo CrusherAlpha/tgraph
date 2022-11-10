@@ -9,6 +9,7 @@ import java.util.List;
 public interface DatabaseManagementService {
     /**
      * Retrieve a database service by name.
+     * If database already start, just return, or should start it.
      *
      * @param databaseName name of the database.
      * @return the database service with the provided name
@@ -18,6 +19,7 @@ public interface DatabaseManagementService {
 
     /**
      * Create a new database.
+     * Create does not mean start, you should start it first.
      *
      * @param databaseName name of the database.
      * @throws DatabaseExistsException if a database with the provided name already exists
@@ -26,6 +28,7 @@ public interface DatabaseManagementService {
 
     /**
      * Drop a database by name. All data stored in the database will be deleted as well.
+     * You should shut down the database first.
      *
      * @param databaseName name of the database to drop.
      * @throws DatabaseNotFoundException if no database with the given name is found.
@@ -49,7 +52,7 @@ public interface DatabaseManagementService {
     void shutdownDatabase(String databaseName) throws DatabaseNotFoundException;
 
     /**
-     * @return an alphabetically sorted list of all database names this database server manages.
+     * @return A list of all database names this database server manages.
      */
     List<String> listDatabases();
 

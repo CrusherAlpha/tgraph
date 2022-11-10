@@ -41,7 +41,7 @@ public class VertexTemporalPropertyStore {
     // the #argument is fine, we don't encapsulate these in StoreOption
     public VertexTemporalPropertyStore(GraphSpaceID graph, String dataPath, boolean readonly) {
         this.graph = graph;
-        this.dataPath = dataPath + "/vertex";
+        this.dataPath = dataPath;
         var comparator = new VertexTemporalPropertyKeyComparator(new ComparatorOptions());
         StoreOptions opt = StoreOptions.of(this.graph, this.dataPath, readonly, new Comparator(comparator));
         store = new RocksEngine(opt);
@@ -145,9 +145,12 @@ public class VertexTemporalPropertyStore {
         return ret.isEmpty() ? null : ret;
     }
 
-    boolean flush() {
+    public boolean flush() {
         return store.flush();
     }
 
+    public void drop() {
+        store.drop();
+    }
 
 }

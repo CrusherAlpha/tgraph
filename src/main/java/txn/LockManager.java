@@ -342,8 +342,9 @@ public class LockManager implements AutoCloseable {
     // NOTE!: require external synchronization.
     private boolean doUnlock(TransactionImpl txn, TemporalPropertyID tp) {
         var txnState = txn.getState();
+
         Preconditions.checkState(txnState == TransactionState.COMMITTED || txnState == TransactionState.ABORTED,
-                "SS2PL requires unlock occurs in final phase");
+                "SS2PL requires transactions release locks in final phase.");
 
         var lq = getOrCreateLockRequestQueue(tp);
 
@@ -368,9 +369,12 @@ public class LockManager implements AutoCloseable {
             }
             return true;
 
+        } catch (Exception e) {
+            e.printStackTrace();
         } finally {
             lq.mu.unlock();
         }
+        return false;
     }
 
     // NOTE!: require external synchronization.
@@ -388,8 +392,13 @@ public class LockManager implements AutoCloseable {
         Preconditions.checkNotNull(req);
         for (var r : que.requestQueue) {
             var txn = txnMap.get(r.txnID);
+            // if we commit/abort txns, the lr of this txn should not be in this queue.
             Preconditions.checkState(txn != null);
-            if (r.granted && txn.getState() == TransactionState.ACTIVE) {
+            // for reducing transaction commit latency, tgraph adapt async commit, thus
+            // when txn state is committed, the transaction may be not release all its locks.
+            // but for aborted transactions, even if async abort exist, it does not matter cause
+            // aborted transactions do not have any effects.
+            if (r.granted && (txn.getState() == TransactionState.ACTIVE || txn.getState() == TransactionState.COMMITTED)) {
                 Preconditions.checkState(r.txnID != req.txnID);
                 var compatible = (r.lockMode != LockMode.EXCLUSIVE && req.lockMode != LockMode.EXCLUSIVE);
                 if (!compatible) {

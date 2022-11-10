@@ -69,7 +69,9 @@ public class LogStore {
         return ret;
     }
 
-
+    void drop() {
+        store.drop();
+    }
 
 
 }

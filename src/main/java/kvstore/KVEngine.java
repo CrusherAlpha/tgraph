@@ -156,4 +156,8 @@ public interface KVEngine {
     // NOTE!: only used in meta db.
     List<Pair<byte[], byte[]>> scan();
 
+    /**
+     * Drop this store.
+     */
+    void drop();
 }

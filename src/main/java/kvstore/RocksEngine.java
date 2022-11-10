@@ -376,4 +376,14 @@ public class RocksEngine implements KVEngine {
         }
         return ret;
     }
+
+    @Override
+    public void drop() {
+        try {
+            RocksDB.destroyDB(dataPath, new Options());
+        } catch (RocksDBException e) {
+            log.error(String.format("drop db %s fail, data path: %s.", graph.getGraphName(), dataPath));
+            e.printStackTrace();
+        }
+    }
 }

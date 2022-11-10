@@ -21,6 +21,7 @@ import txn.TransactionAbortException;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 // In Neo4j, Vertex/Edge is like Executor in RDMS.
 // The difficulty of implementing Vertex/Edge is schema change.
@@ -46,6 +47,19 @@ public class Edge implements Relationship {
         id = neoEdge.getId();
         startId = neoEdge.getStartNodeId();
         endId = neoEdge.getEndNodeId();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Edge edge = (Edge) o;
+        return id == edge.id;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 
     private Lock acquireIS() {

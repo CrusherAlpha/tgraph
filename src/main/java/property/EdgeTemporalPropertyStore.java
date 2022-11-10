@@ -38,7 +38,7 @@ public class EdgeTemporalPropertyStore {
     // the #argument is fine, we don't encapsulate these in StoreOption
     public EdgeTemporalPropertyStore(GraphSpaceID graph, String dataPath, boolean readonly) {
         this.graph = graph;
-        this.dataPath = dataPath + "/edge";
+        this.dataPath = dataPath;
         var comparator = new EdgeTemporalPropertyKeyComparator(new ComparatorOptions());
         StoreOptions opt = StoreOptions.of(this.graph, this.dataPath, readonly, new Comparator(comparator));
         store = new RocksEngine(opt);
@@ -142,8 +142,12 @@ public class EdgeTemporalPropertyStore {
         return ret.isEmpty() ? null : ret;
     }
 
-    boolean flush() {
+    public boolean flush() {
         return store.flush();
+    }
+
+    public void drop() {
+        store.drop();
     }
 
 
