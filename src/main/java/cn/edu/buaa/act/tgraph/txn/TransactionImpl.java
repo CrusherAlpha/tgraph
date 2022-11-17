@@ -123,6 +123,7 @@ public class TransactionImpl implements Transaction {
         var node = graphTxn.createNode(Label.label(TGraphConfig.COMMIT_LOG_NODE_LABEL));
         node.setProperty(TGraphConfig.COMMIT_LOG_TXN_IDENTIFIER, txnID);
         graphTxn.commit();
+        log.info(String.format("write transaction %d commit log.", txnID));
     }
 
     public VertexTemporalPropertyWriteBatch getVertexWb() {
@@ -136,12 +137,14 @@ public class TransactionImpl implements Transaction {
     @Override
     public Node createNode() {
         org.neo4j.graphdb.Node neoNode = graphTxn.createNode();
+        log.info(String.format("You create a new node, id: %d.", neoNode.getId()));
         return new Vertex(neoNode, exeCtx);
     }
 
     @Override
     public Node createNode(Label... labels) {
         org.neo4j.graphdb.Node neoNode = graphTxn.createNode(labels);
+        log.info(String.format("You create a new node, id: %d.", neoNode.getId()));
         return new Vertex(neoNode, exeCtx);
     }
 
@@ -260,6 +263,7 @@ public class TransactionImpl implements Transaction {
     @Override
     public Node findNode(Label label, String key, Object value) {
         var neoNode = graphTxn.findNode(label, key, value);
+        log.info(String.format("You find a node through TransactionImpl::findNode, id: %d.", neoNode.getId()));
         return new Vertex(neoNode, exeCtx);
     }
 
@@ -336,11 +340,13 @@ public class TransactionImpl implements Transaction {
 
     @Override
     public void commit() {
+        log.info(String.format("You commit a transaction, txn id: %d.", txnID));
         txnManager.commitTransaction(this);
     }
 
     @Override
     public void rollback() {
+        log.info(String.format("You rollback a transaction, txn id: %d.", txnID));
         txnManager.abortTransaction(this);
     }
 

@@ -42,6 +42,7 @@ public class DatabaseManager implements DatabaseManagementService {
         String metaPath = databaseDirectory + "/meta";
         this.tGraphPath = databaseDirectory + "/db";
         this.metaDB = new MetaDB(metaPath);
+        log.info("You build a new DatabaseManager, working director: " + databaseDirectory + ".");
     }
 
     public static DatabaseManager of(String databaseDirectory) {
@@ -56,6 +57,7 @@ public class DatabaseManager implements DatabaseManagementService {
         var graph = dbms.database(DEFAULT_DATABASE_NAME);
         var tg = new TGraphDatabase(new GraphSpaceID(1, databaseName, graphPath), graph);
         openedTG.put(databaseName, tg);
+        log.info(String.format("You start a temporal graph database %s.", databaseName));
         return tg;
     }
 
@@ -89,6 +91,7 @@ public class DatabaseManager implements DatabaseManagementService {
             throw new DatabaseExistsException();
         }
         metaDB.put(databaseName, 1);
+        log.info(String.format("You create a new temporal graph database: %s", databaseName));
     }
 
     private boolean deleteDirectory(File dir) {

@@ -60,10 +60,12 @@ public class Vertex implements Node {
     }
 
     private Lock acquireIS() {
+        log.info(String.format("txn %d acquires Intention Shared Lock(IS) on vertex %d.", exeCtx.getTxnID(), id));
         return exeCtx.getGraphTxn().acquireReadLock(neoVertex);
     }
 
     private Lock acquireIX() {
+        log.info(String.format("txn %d acquires Intention Exclusive Lock(IX) on vertex %d.", exeCtx.getTxnID(), id));
         return exeCtx.getGraphTxn().acquireWriteLock(neoVertex);
     }
 
@@ -91,10 +93,12 @@ public class Vertex implements Node {
     }
 
     private void acquireS(String tp) throws TransactionAbortException {
+        log.info(String.format("txn %d acquires Shared Lock on vertex %d temporal property %s.", exeCtx.getTxnID(), id, tp));
         doAcquireSX(tp, true);
     }
 
     private void acquireX(String tp) throws TransactionAbortException {
+        log.info(String.format("txn %d acquires Exclusive Lock on vertex %d temporal property %s.", exeCtx.getTxnID(), id, tp));
         doAcquireSX(tp, false);
     }
 
@@ -195,6 +199,7 @@ public class Vertex implements Node {
                 throw new TemporalPropertyNotExistsException();
             }
             acquireS(key);
+            log.info(String.format("txn %d gets vertex %d temporal property %s value in time %s.", exeCtx.getTxnID(), id, key, timestamp.toString()));
             return exeCtx.getVertex().get(VertexTemporalPropertyKey.of(id, key, timestamp.getTime()));
         } catch (TransactionAbortException e) {
             log.info(e.getInfo());
@@ -231,6 +236,7 @@ public class Vertex implements Node {
             acquireX(key);
             exeCtx.getLogWb().append(LogEntry.putVertex(k, value));
             exeCtx.getVertexWb().put(k, value);
+            log.info(String.format("txn %d sets vertex %d temporal property %s value %s in time %s.", exeCtx.getTxnID(), id, key, value, timestamp));
         } catch (TransactionAbortException e) {
             log.info(e.getInfo());
             throw e;

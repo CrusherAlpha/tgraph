@@ -55,7 +55,9 @@ public class TGraphDatabase implements TGraphDatabaseService {
 
     @Override
     public Transaction beginTx() {
-        return txnManager.beginTransaction();
+        var txn = txnManager.beginTransaction();
+        log.info(String.format("You begin a new transaction, txn id: %d.", txn.getTxnID()));
+        return txn;
     }
 
     @Override

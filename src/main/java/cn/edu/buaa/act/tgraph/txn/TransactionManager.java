@@ -127,6 +127,7 @@ public class TransactionManager implements AutoCloseable {
         var txnID = transaction.getTxnID();
         // 1. write redo log
         logStore.commitBatchWrite(txnID, transaction.getLogWb());
+        log.info("Before write real data, txn " + txnID + " write redo log first.");
         // 2. write commit log
         transaction.writeCommitLog();
         Preconditions.checkNotNull(backgroundTaskExecutor, "you should start TransactionManager first.");
@@ -136,6 +137,7 @@ public class TransactionManager implements AutoCloseable {
 
 
     private void asyncCommitTask(TransactionImpl txn) {
+        log.info("txn " + txn.getTxnID() + " executes commit task async for boosting efficiency.");
         // 3. write temporal property store
         vertex.commitBatchWrite(txn.getVertexWb(), false, true, true);
         edge.commitBatchWrite(txn.getEdgeWb(), false, true, true);
@@ -161,6 +163,7 @@ public class TransactionManager implements AutoCloseable {
             for (var tp : tps) {
                 lockManager.unlock(transaction, tp);
             }
+            log.info(String.format("txn %d releases all his locks.", transaction.getTxnID()));
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
